@@ -1,0 +1,20 @@
+# Dependencies (восстанавливаются через npm ci)
+node_modules/
+
+# Сборка
+dist/
+
+# Логи и ОС
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Кэш
+.cache/
