@@ -50,4 +50,6 @@ git push -u origin main
 Для репозитория `username.github.io` корень будет `https://username.github.io/`.
 
 Сборка настроена в `.github/workflows/deploy-pages.yml` (ветки `main` и `master`).
+
+Подробно: что нужно, чтобы кто-то другой мог залить проект на ваш GitHub — см. **`docs/GITHUB_DEPLOY.md`**.
   

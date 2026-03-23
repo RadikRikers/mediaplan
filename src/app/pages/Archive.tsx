@@ -9,7 +9,7 @@ export default function Archive() {
   const { users, tasks, channels, currentUser, deleteTask } = useStore();
 
   const archivedTasks = filterTasksByPermissions(
-    tasks.filter((t) => t.completed),
+    tasks.filter((t) => Boolean(t.completed)),
     currentUser,
   ).sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
 

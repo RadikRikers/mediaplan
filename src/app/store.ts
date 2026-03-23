@@ -16,48 +16,62 @@ const STORAGE_KEYS = {
 
 const SESSION_USER_KEY = 'mediaplanning_session_user';
 
-// Начальные пользователи
+// Начальные пользователи (id 1–8 — команда, 9 — сервисный аккаунт для сохранения в localStorage)
 const initialUsers: User[] = [
   {
     id: '1',
-    name: 'Анна Иванова',
+    name: 'Капустин Родион',
     role: 'senior-smm-specialist',
-    password: 'smm123',
+    password: 'demo1',
     createdAt: new Date().toISOString(),
   },
   {
     id: '2',
-    name: 'Петр Смирнов',
+    name: 'Ермакова Виктория',
     role: 'smm-specialist',
-    password: 'smm456',
+    password: 'demo2',
     createdAt: new Date().toISOString(),
   },
   {
     id: '3',
-    name: 'Мария Петрова',
+    name: 'Поздеева Анжела',
     role: 'editor',
-    password: 'editor123',
+    password: 'demo3',
     createdAt: new Date().toISOString(),
   },
   {
     id: '4',
-    name: 'Иван Сидоров',
+    name: 'Филатова Юлиана',
     role: 'copywriter',
-    password: 'copy123',
+    password: 'demo4',
     createdAt: new Date().toISOString(),
   },
   {
     id: '5',
-    name: 'Ольга Козлова',
+    name: 'Асадуллин Наиль',
     role: 'designer',
-    password: 'design123',
+    password: 'demo5',
     createdAt: new Date().toISOString(),
   },
   {
     id: '6',
-    name: 'Дмитрий Морозов',
+    name: 'Валеев Тимур',
     role: 'videographer',
-    password: 'video123',
+    password: 'demo6',
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: '7',
+    name: 'Говорик Екатерина',
+    role: 'smm-specialist',
+    password: 'demo7',
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: '8',
+    name: 'Антуганова Анна',
+    role: 'copywriter',
+    password: 'demo8',
     createdAt: new Date().toISOString(),
   },
   {
@@ -96,7 +110,7 @@ const initialTasks: Task[] = [
     title: 'Федеральный запуск: контент-пак',
     description: 'Подготовить контент-пак и согласовать рубрики с командой.',
     deadline: iso(deadline(-4)),
-    assignees: ['1', '2'],
+    assignees: ['1', '7'],
     category: 'federal',
     completed: false,
     recurrence: 'none',
@@ -125,7 +139,7 @@ const initialTasks: Task[] = [
     title: 'Федеральный отчет: итоги недели',
     description: 'Собрать статистику, оформить выводы и отправить ответственным.',
     deadline: iso(deadline(4)),
-    assignees: ['4'],
+    assignees: ['4', '8'],
     category: 'federal',
     completed: false,
     recurrence: 'none',
@@ -168,7 +182,7 @@ const initialTasks: Task[] = [
     title: 'Федеральная интеграция: квартальная активность',
     description: 'Подготовить интеграционный контент и запустить кампанию.',
     deadline: iso(deadline(-1)),
-    assignees: ['2'],
+    assignees: ['2', '7'],
     category: 'federal',
     completed: false,
     recurrence: 'quarterly',
@@ -727,6 +741,7 @@ function loadFromStorage<T>(key: string, defaultValue: T): T {
           ...task,
           channels: task.channels || [],
           kpiType: task.kpiType || 'none',
+          completed: Boolean(task.completed),
           completedAt: task.completedAt,
         }));
 
@@ -750,16 +765,28 @@ function loadFromStorage<T>(key: string, defaultValue: T): T {
 function loadSessionUser(): User | null {
   try {
     const ss = sessionStorage.getItem(SESSION_USER_KEY);
-    if (ss) return JSON.parse(ss) as User;
+    if (ss) {
+      const u = JSON.parse(ss) as User;
+      return migrateServiceUserId(u);
+    }
     const ls = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
     if (ls) {
       const u = JSON.parse(ls) as User;
       if (u.id === SERVICE_USER_ID) return u;
+      return migrateServiceUserId(u);
     }
   } catch {
     /* ignore */
   }
   return null;
+}
+
+/** Старый сервисный аккаунт был id=7; теперь 7 — Говорик, сервис — id 9 */
+function migrateServiceUserId(u: User): User {
+  if (u.id === '7' && u.name?.includes('Сервис')) {
+    return { ...u, id: SERVICE_USER_ID };
+  }
+  return u;
 }
 
 export function useStore() {
@@ -825,15 +852,21 @@ export function useStore() {
     }
   }, [currentUser]);
 
-  // Удаление из архива: через 2 суток после дедлайна (только для выполненных)
+  // Удаление из архива: не раньше чем через 2 суток после дедлайна И 2 суток после отметки выполненным
+  // (иначе старые дедлайны мгновенно удаляли задачу из архива)
   useEffect(() => {
     const purgeArchived = () => {
       setTasks((prev) => {
         const now = new Date();
         return prev.filter((t) => {
           if (!t.completed) return true;
-          const purgeAfter = addDays(new Date(t.deadline), 2);
-          return !isAfter(now, purgeAfter);
+          const completedAt = t.completedAt ? new Date(t.completedAt) : new Date(t.deadline);
+          const purgeAfterDeadline = addDays(new Date(t.deadline), 2);
+          const purgeAfterComplete = addDays(completedAt, 2);
+          const purgeAt = new Date(
+            Math.max(purgeAfterDeadline.getTime(), purgeAfterComplete.getTime()),
+          );
+          return !isAfter(now, purgeAt);
         });
       });
     };

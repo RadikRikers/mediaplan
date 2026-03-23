@@ -166,14 +166,21 @@ export function TaskCard({ task, users, channels, onToggleComplete, onEdit, onDe
           </div>
         )}
 
-        {archiveMode && task.completed && (
-          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
-            Автоудаление из архива: через 2 дня после дедлайна (
-            {format(addDays(new Date(task.deadline), 2), 'dd.MM.yyyy HH:mm', { locale: ru })}
-            ). Осталось примерно{' '}
-            {Math.max(0, differenceInCalendarDays(addDays(new Date(task.deadline), 2), new Date()))} сут.
-          </p>
-        )}
+        {archiveMode && task.completed && (() => {
+          const completedAt = task.completedAt ? new Date(task.completedAt) : new Date(task.deadline);
+          const purgeAfterDeadline = addDays(new Date(task.deadline), 2);
+          const purgeAfterComplete = addDays(completedAt, 2);
+          const purgeAt = new Date(
+            Math.max(purgeAfterDeadline.getTime(), purgeAfterComplete.getTime()),
+          );
+          return (
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
+              Автоудаление не раньше: {format(purgeAt, 'dd.MM.yyyy HH:mm', { locale: ru })} (2 сут. после
+              дедлайна и после отметки «выполнено»). Осталось примерно{' '}
+              {Math.max(0, differenceInCalendarDays(purgeAt, new Date()))} сут.
+            </p>
+          );
+        })()}
       </CardContent>
     </Card>
   );
