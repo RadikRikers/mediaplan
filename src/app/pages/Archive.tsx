@@ -1,22 +1,32 @@
 import { useStore } from '../store';
 import { TaskCard } from '../components/TaskCard';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Button } from '../components/ui/button';
 import { filterTasksByPermissions } from '../utils/permissions';
 import { isServiceAccount } from '../constants/serviceAccount';
 import { Archive as ArchiveIcon } from 'lucide-react';
 
 export default function Archive() {
-  const { users, tasks, channels, currentUser, deleteTask } = useStore();
+  const { users, tasks, channels, currentUser, deleteTask, updateTask } = useStore();
 
   const archivedTasks = filterTasksByPermissions(
     tasks.filter((t) => Boolean(t.completed)),
     currentUser,
-  ).sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
+  ).sort((a, b) => {
+    if (!a.deadline && !b.deadline) return a.title.localeCompare(b.title, 'ru');
+    if (!a.deadline) return 1;
+    if (!b.deadline) return -1;
+    return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+  });
 
   const handleDelete = (taskId: string) => {
     if (confirm('Удалить задачу из архива?')) {
       deleteTask(taskId);
     }
+  };
+
+  const handleRestore = (taskId: string) => {
+    updateTask(taskId, { completed: false, completedAt: undefined });
   };
 
   return (
@@ -50,16 +60,22 @@ export default function Archive() {
       ) : (
         <div className="space-y-4">
           {archivedTasks.map((task) => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              users={users}
-              channels={channels}
-              archiveMode
-              onToggleComplete={() => {}}
-              onEdit={() => {}}
-              onDelete={handleDelete}
-            />
+            <div key={task.id} className="space-y-2">
+              <TaskCard
+                task={task}
+                users={users}
+                channels={channels}
+                archiveMode
+                onToggleComplete={() => {}}
+                onEdit={() => {}}
+                onDelete={handleDelete}
+              />
+              <div className="flex justify-end">
+                <Button variant="outline" size="sm" onClick={() => handleRestore(task.id)}>
+                  Вернуть в работу
+                </Button>
+              </div>
+            </div>
           ))}
         </div>
       )}
