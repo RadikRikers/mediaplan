@@ -1,55 +1,34 @@
+# Untitled
 
-  # Untitled
+Исходный макет: https://www.figma.com/design/FiLqFelRHAR6P0rjuwtqW6/Untitled
 
-  This is a code bundle for Untitled. The original project is available at https://www.figma.com/design/FiLqFelRHAR6P0rjuwtqW6/Untitled.
-
-  ## Running the code
-
-  Run `npm i` to install the dependencies.
-
-  Run `npm run dev` to start the development server.
-
-## Production (любой статический сервер)
-
-1. Соберите проект: `npm run build`
-2. Раздавайте содержимое папки `dist/` любым статическим сервером.
-   - Пример: `npx serve dist` (локально)
-
-Приложение использует hash-роутинг, поэтому не требует специальных правил “SPA fallback” на сервере.
-
-## GitHub + GitHub Pages (сайт из любой точки мира)
-
-Зависимости **не** хранятся в репозитории: в git идут `package.json` и `package-lock.json`; на GitHub при сборке выполняется `npm ci` (точная установка версий).
-
-### 1. Создайте пустой репозиторий на GitHub
-
-Например: `https://github.com/ВАШ_ЛОГИН/ИМЯ_РЕПО` (без README, если будете пушить существующий код).
-
-### 2. Локально: первый коммит и отправка
+## Запуск
 
 ```bash
-cd путь/к/Untitled_1
-git init
-git branch -M main
-git add .
-git commit -m "Initial commit: Vite + React, GitHub Pages"
-git remote add origin https://github.com/ВАШ_ЛОГИН/ИМЯ_РЕПО.git
-git push -u origin main
+npm install
+npm run dev
 ```
 
-Если GitHub просит авторизацию — используйте [Personal Access Token](https://github.com/settings/tokens) вместо пароля или `gh auth login`.
+Создайте файл **`.env`** по образцу **`.env.example`** (ключи Supabase), иначе данные будут только в браузере (`localStorage`).
 
-### 3. Включите GitHub Pages из Actions
+## Сборка
 
-На GitHub: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+```bash
+npm run build
+```
 
-После успешного workflow сайт будет по адресу:
+Готовые файлы — в `dist/`. Роутинг с `#` (`#/…`), отдельный SPA-fallback на сервере не нужен.
 
-`https://ВАШ_ЛОГИН.github.io/ИМЯ_РЕПО/` (для обычного репозитория).
+## Supabase (общая база для команды)
 
-Для репозитория `username.github.io` корень будет `https://username.github.io/`.
+1. Проект на [supabase.com](https://supabase.com) → **SQL Editor** → выполните скрипт из  
+   `supabase/migrations/001_mediaplan_app_state.sql`
+2. **Settings → API**: скопируйте **Project URL** и **anon public** key в `.env` как  
+   `VITE_SUPABASE_URL` и `VITE_SUPABASE_ANON_KEY`
+3. `npm run build` и раздавайте `dist/` любым статическим хостингом (Netlify, Vercel, Cloudflare Pages, S3 и т.д.).
 
-Сборка настроена в `.github/workflows/deploy-pages.yml` (ветки `main` и `master`).
+Подробнее: **`deploy-supabase.txt`**
 
-Подробно: что нужно, чтобы кто-то другой мог залить проект на ваш GitHub — см. **`docs/GITHUB_DEPLOY.md`**.
-  
+**Безопасность:** в миграции включён анонимный доступ к таблице для простоты. Для публичного сайта лучше заменить политики RLS на авторизацию Supabase.
+
+Документ **`deploy-ispmanager.txt`** (PHP/MySQL) актуален только если вы сознательно откатываетесь на свой PHP-бэкенд.

@@ -1,8 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { User, Task, CommunicationChannel } from './types';
 import { addDays, addWeeks, addMonths, addQuarters, addYears, isBefore, isAfter, startOfDay, differenceInHours } from 'date-fns';
 import { toast } from 'sonner';
 import { isServiceAccount, SERVICE_USER_ID } from './constants/serviceAccount';
+import {
+  fetchRemoteState,
+  saveRemoteState,
+  isRemoteSyncConfigured,
+  snapshotState,
+  type RemoteStatePayload,
+} from './api/backend';
 
 // Локальное хранилище данных
 const STORAGE_KEYS = {
@@ -789,6 +796,16 @@ function migrateServiceUserId(u: User): User {
   return u;
 }
 
+function normalizeTaskWire(raw: Record<string, unknown>): Task {
+  return {
+    ...(raw as unknown as Task),
+    channels: Array.isArray(raw.channels) ? (raw.channels as string[]) : [],
+    kpiType: (raw.kpiType as Task['kpiType']) || 'none',
+    completed: Boolean(raw.completed),
+    completedAt: typeof raw.completedAt === 'string' ? raw.completedAt : undefined,
+  };
+}
+
 export function useStore() {
   const [users, setUsers] = useState<User[]>(() => loadFromStorage(STORAGE_KEYS.USERS, initialUsers));
   const [tasks, setTasks] = useState<Task[]>(() => loadFromStorage(STORAGE_KEYS.TASKS, initialTasks));
@@ -802,40 +819,113 @@ export function useStore() {
     loadFromStorage<boolean>(STORAGE_KEYS.PUSH_NOTIFICATIONS_ENABLED, false)
   );
 
-  // При входе сервисного аккаунта подтягиваем данные с диска (единственный источник правды для сохранения)
-  useEffect(() => {
-    if (!isServiceAccount(currentUser)) return;
-    setUsers(loadFromStorage(STORAGE_KEYS.USERS, initialUsers));
-    setTasks(loadFromStorage(STORAGE_KEYS.TASKS, initialTasks));
-    setChannels(loadFromStorage(STORAGE_KEYS.CHANNELS, initialChannels));
-    setNotificationsShown(new Set(loadFromStorage<string[]>(STORAGE_KEYS.NOTIFICATIONS_SHOWN, [])));
-    setPushNotificationsEnabled(loadFromStorage(STORAGE_KEYS.PUSH_NOTIFICATIONS_ENABLED, false));
-  }, [currentUser?.id]);
+  const lastWrittenRef = useRef<string | null>(null);
+  const remoteSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Пока false — не отправляем PUT, чтобы не затереть БД старым localStorage до ответа GET */
+  const remoteHydratedRef = useRef(!isRemoteSyncConfigured());
+
+  const pullFromServer = useCallback(async () => {
+    if (!isRemoteSyncConfigured()) return;
+    try {
+      const data = await fetchRemoteState();
+      const usersNext = data.users?.length ? data.users : initialUsers;
+      const tasksNext = data.tasks?.length
+        ? data.tasks.map((t) => normalizeTaskWire(t as unknown as Record<string, unknown>))
+        : initialTasks;
+      const channelsNext = data.channels?.length ? data.channels : initialChannels;
+      const notificationsNext = Array.isArray(data.notificationsShown) ? data.notificationsShown : [];
+      const pushNext = typeof data.pushNotificationsEnabled === 'boolean' ? data.pushNotificationsEnabled : false;
+
+      const payload: RemoteStatePayload = {
+        users: usersNext,
+        tasks: tasksNext,
+        channels: channelsNext,
+        notificationsShown: notificationsNext,
+        pushNotificationsEnabled: pushNext,
+      };
+      lastWrittenRef.current = snapshotState(payload);
+      setUsers(usersNext);
+      setTasks(tasksNext);
+      setChannels(channelsNext);
+      setNotificationsShown(new Set(notificationsNext));
+      setPushNotificationsEnabled(pushNext);
+    } catch (e) {
+      console.error(e);
+      toast.error('Не удалось загрузить данные из Supabase. Показаны локальные данные.');
+    } finally {
+      remoteHydratedRef.current = true;
+    }
+  }, []);
 
   useEffect(() => {
-    if (!isServiceAccount(currentUser)) return;
+    if (!currentUser) return;
+    if (!isRemoteSyncConfigured()) return;
+    remoteHydratedRef.current = false;
+    void pullFromServer();
+  }, [currentUser?.id, pullFromServer]);
+
+  // Локальный кэш для любого залогиненного пользователя (офлайн и без API-ключа)
+  useEffect(() => {
+    if (!currentUser) return;
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
   }, [users, currentUser]);
 
   useEffect(() => {
-    if (!isServiceAccount(currentUser)) return;
+    if (!currentUser) return;
     localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(tasks));
   }, [tasks, currentUser]);
 
   useEffect(() => {
-    if (!isServiceAccount(currentUser)) return;
+    if (!currentUser) return;
     localStorage.setItem(STORAGE_KEYS.CHANNELS, JSON.stringify(channels));
   }, [channels, currentUser]);
 
   useEffect(() => {
-    if (!isServiceAccount(currentUser)) return;
+    if (!currentUser) return;
     localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS_SHOWN, JSON.stringify([...notificationsShown]));
   }, [notificationsShown, currentUser]);
 
   useEffect(() => {
-    if (!isServiceAccount(currentUser)) return;
+    if (!currentUser) return;
     localStorage.setItem(STORAGE_KEYS.PUSH_NOTIFICATIONS_ENABLED, JSON.stringify(pushNotificationsEnabled));
   }, [pushNotificationsEnabled, currentUser]);
+
+  // Облачное состояние (Supabase)
+  useEffect(() => {
+    if (!currentUser) return;
+    if (!isRemoteSyncConfigured()) return;
+    if (!remoteHydratedRef.current) return;
+
+    const payload: RemoteStatePayload = {
+      users,
+      tasks,
+      channels,
+      notificationsShown: [...notificationsShown],
+      pushNotificationsEnabled,
+    };
+    const snap = snapshotState(payload);
+    if (lastWrittenRef.current === snap) return;
+
+    if (remoteSaveTimerRef.current) clearTimeout(remoteSaveTimerRef.current);
+    remoteSaveTimerRef.current = setTimeout(() => {
+      remoteSaveTimerRef.current = null;
+      saveRemoteState(payload)
+        .then(() => {
+          lastWrittenRef.current = snap;
+        })
+        .catch((err) => {
+          console.error(err);
+          toast.error('Не удалось сохранить в Supabase');
+        });
+    }, 450);
+
+    return () => {
+      if (remoteSaveTimerRef.current) {
+        clearTimeout(remoteSaveTimerRef.current);
+        remoteSaveTimerRef.current = null;
+      }
+    };
+  }, [users, tasks, channels, notificationsShown, pushNotificationsEnabled, currentUser]);
 
   useEffect(() => {
     if (!currentUser) {
@@ -933,10 +1023,11 @@ export function useStore() {
             const title = `Напоминание: ${task.title}`;
           showReminderNotification(title, description, notificationKey);
 
-            // Fallback для тех случаев, когда push отключен/запрещен.
+            // Fallback, когда push отключен/запрещен — можно закрыть вручную (крестик).
             toast.warning(title, {
               description,
-              duration: 10000,
+              duration: 60_000,
+              closeButton: true,
             });
           }
         });
