@@ -1,4 +1,4 @@
-import { User, Task, UserRole, roleBlocks } from '../types';
+import { User, Task, UserRole, roleBlocks, Meeting } from '../types';
 
 // Проверяет, имеет ли пользователь полный доступ ко всем данным
 export function hasFullAccess(user: User | null): boolean {
@@ -49,4 +49,11 @@ export function canViewUser(user: User, currentUser: User | null): boolean {
 export function filterUsersByPermissions(users: User[], currentUser: User | null): User[] {
   if (!currentUser) return [];
   return users.filter(user => canViewUser(user, currentUser));
+}
+
+/** Удалить или редактировать встречу может создатель либо пользователь с полным доступом */
+export function canManageMeeting(meeting: Meeting, currentUser: User | null): boolean {
+  if (!currentUser) return false;
+  if (meeting.createdBy === currentUser.id) return true;
+  return hasFullAccess(currentUser);
 }

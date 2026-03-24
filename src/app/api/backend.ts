@@ -1,10 +1,11 @@
-import type { User, Task, CommunicationChannel } from '../types';
+import type { User, Task, CommunicationChannel, Meeting } from '../types';
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabaseClient';
 
 export type RemoteStatePayload = {
   users: User[];
   tasks: Task[];
   channels: CommunicationChannel[];
+  meetings: Meeting[];
   notificationsShown: string[];
   pushNotificationsEnabled: boolean;
 };
@@ -22,6 +23,7 @@ function emptyPayload(): RemoteStatePayload {
     users: [],
     tasks: [],
     channels: [],
+    meetings: [],
     notificationsShown: [],
     pushNotificationsEnabled: false,
   };
@@ -34,6 +36,7 @@ function coercePayload(raw: unknown): RemoteStatePayload {
     users: Array.isArray(o.users) ? (o.users as User[]) : [],
     tasks: Array.isArray(o.tasks) ? (o.tasks as Task[]) : [],
     channels: Array.isArray(o.channels) ? (o.channels as CommunicationChannel[]) : [],
+    meetings: Array.isArray(o.meetings) ? (o.meetings as Meeting[]) : [],
     notificationsShown: Array.isArray(o.notificationsShown)
       ? (o.notificationsShown as string[])
       : [],
@@ -67,6 +70,7 @@ export function snapshotState(p: RemoteStatePayload): string {
     users: p.users,
     tasks: p.tasks,
     channels: p.channels,
+    meetings: [...p.meetings].sort((a, b) => a.id.localeCompare(b.id)),
     notificationsShown: [...p.notificationsShown].sort(),
     pushNotificationsEnabled: p.pushNotificationsEnabled,
   });

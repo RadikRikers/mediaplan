@@ -55,6 +55,23 @@ export interface Task {
   createdAt: string;
 }
 
+/** Встреча в планёре (недельная сетка); синхронизируется с остальным состоянием приложения */
+export interface Meeting {
+  id: string;
+  title: string;
+  /** ISO дата/время начала */
+  startsAt: string;
+  /** ISO дата/время окончания */
+  endsAt: string;
+  /** Место или ссылка (переговорная, Zoom и т.д.) */
+  location: string;
+  /** Что подготовить — необязательно */
+  preparation?: string;
+  participantIds: string[];
+  createdBy: string;
+  createdAt: string;
+}
+
 export const roleLabels: Record<UserRole, string> = {
   'smm-specialist': 'SMM-специалист',
   'senior-smm-specialist': 'Старший SMM-специалист',

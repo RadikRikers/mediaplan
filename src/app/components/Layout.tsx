@@ -1,14 +1,33 @@
+import { useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router';
 import { useStore } from '../store';
 import { Button } from './ui/button';
-import { LayoutDashboard, Calendar, Users, ClipboardList, LogOut, KeyRound, Archive } from 'lucide-react';
+import {
+  LayoutDashboard,
+  Calendar,
+  Users,
+  ClipboardList,
+  LogOut,
+  KeyRound,
+  Archive,
+  CalendarClock,
+  Menu,
+} from 'lucide-react';
 import { roleLabels } from '../types';
 import { toast } from 'sonner';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from './ui/sheet';
 
 export default function Layout() {
   const { currentUser, setCurrentUser } = useStore();
   const location = useLocation();
   const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const handleLogout = () => {
     setCurrentUser(null);
@@ -19,6 +38,7 @@ export default function Layout() {
   const navigation = [
     { name: 'Дашборд', href: '/', icon: LayoutDashboard },
     { name: 'Медиаплан', href: '/mediaplan', icon: ClipboardList },
+    { name: 'Встречи', href: '/meetings', icon: CalendarClock },
     { name: 'Календарь', href: '/calendar', icon: Calendar },
     { name: 'Команда', href: '/team', icon: Users },
     { name: 'Архив', href: '/archive', icon: Archive },
@@ -30,9 +50,49 @@ export default function Layout() {
       <nav className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
-            <div className="flex">
-              <div className="flex-shrink-0 flex items-center">
-                <h1 className="text-xl font-bold text-gray-900">Медиапланирование</h1>
+            <div className="flex items-center min-w-0">
+              <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+                <SheetTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="sm:hidden mr-1 shrink-0"
+                    aria-label="Открыть меню"
+                  >
+                    <Menu className="h-5 w-5" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="left" className="w-[min(100vw,20rem)]">
+                  <SheetHeader>
+                    <SheetTitle>Разделы</SheetTitle>
+                  </SheetHeader>
+                  <nav className="flex flex-col gap-1 mt-6">
+                    {navigation.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = location.pathname === item.href;
+                      return (
+                        <Link
+                          key={item.name}
+                          to={item.href}
+                          onClick={() => setMenuOpen(false)}
+                          className={`flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium ${
+                            isActive ? 'bg-blue-50 text-blue-800' : 'text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          <Icon className="h-4 w-4 shrink-0" />
+                          {item.name}
+                        </Link>
+                      );
+                    })}
+                  </nav>
+                  <p className="mt-6 text-xs text-muted-foreground leading-relaxed">
+                    Планёр встреч — отдельная вкладка с недельной сеткой по времени.
+                  </p>
+                </SheetContent>
+              </Sheet>
+              <div className="flex-shrink-0 flex items-center min-w-0">
+                <h1 className="text-xl font-bold text-gray-900 truncate">Медиапланирование</h1>
               </div>
               <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
                 {navigation.map((item) => {
@@ -69,32 +129,6 @@ export default function Layout() {
                 </>
               )}
             </div>
-          </div>
-        </div>
-        
-        {/* Мобильная навигация */}
-        <div className="sm:hidden border-t">
-          <div className="pt-2 pb-3 space-y-1">
-            {navigation.map((item) => {
-              const Icon = item.icon;
-              const isActive = location.pathname === item.href;
-              return (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
-                    isActive
-                      ? 'bg-blue-50 border-blue-500 text-blue-700'
-                      : 'border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800'
-                  }`}
-                >
-                  <div className="flex items-center">
-                    <Icon className="h-4 w-4 mr-2" />
-                    {item.name}
-                  </div>
-                </Link>
-              );
-            })}
           </div>
         </div>
       </nav>

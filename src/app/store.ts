@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { User, Task, CommunicationChannel } from './types';
+import { User, Task, CommunicationChannel, Meeting } from './types';
 import { addDays, addWeeks, addMonths, addQuarters, addYears, isBefore, isAfter, startOfDay, differenceInHours } from 'date-fns';
 import { toast } from 'sonner';
 import { isServiceAccount, SERVICE_USER_ID } from './constants/serviceAccount';
@@ -16,6 +16,7 @@ const STORAGE_KEYS = {
   USERS: 'mediaplanning_users',
   TASKS: 'mediaplanning_tasks',
   CHANNELS: 'mediaplanning_channels',
+  MEETINGS: 'mediaplanning_meetings',
   NOTIFICATIONS_SHOWN: 'mediaplanning_notifications_shown',
   CURRENT_USER: 'mediaplanning_current_user',
   PUSH_NOTIFICATIONS_ENABLED: 'mediaplanning_push_notifications_enabled',
@@ -749,6 +750,9 @@ function loadFromStorage<T>(key: string, defaultValue: T): T {
         }));
         return normalized as T;
       }
+      if (key === STORAGE_KEYS.MEETINGS && Array.isArray(parsed)) {
+        return parsed.map((row) => normalizeMeetingWire(row as Record<string, unknown>)) as T;
+      }
       return parsed;
     }
     return defaultValue;
@@ -795,6 +799,26 @@ function normalizeTaskWire(raw: Record<string, unknown>): Task {
   };
 }
 
+function normalizeMeetingWire(raw: Record<string, unknown>): Meeting {
+  const startsAt = typeof raw.startsAt === 'string' ? raw.startsAt : new Date().toISOString();
+  let endsAt = typeof raw.endsAt === 'string' ? raw.endsAt : '';
+  if (!endsAt) {
+    endsAt = new Date(new Date(startsAt).getTime() + 60 * 60 * 1000).toISOString();
+  }
+  const prep = typeof raw.preparation === 'string' ? raw.preparation.trim() : '';
+  return {
+    id: String(raw.id ?? `${Date.now()}`),
+    title: typeof raw.title === 'string' ? raw.title : 'Встреча',
+    startsAt,
+    endsAt,
+    location: typeof raw.location === 'string' ? raw.location : '',
+    preparation: prep || undefined,
+    participantIds: Array.isArray(raw.participantIds) ? (raw.participantIds as string[]) : [],
+    createdBy: typeof raw.createdBy === 'string' ? raw.createdBy : '',
+    createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : new Date().toISOString(),
+  };
+}
+
 function stripDemoTasks(tasks: Task[]): Task[] {
   return tasks.filter((task) => !DEMO_TASK_IDS.has(task.id));
 }
@@ -803,6 +827,7 @@ export function useStore() {
   const [users, setUsers] = useState<User[]>(() => loadFromStorage(STORAGE_KEYS.USERS, initialUsers));
   const [tasks, setTasks] = useState<Task[]>(() => stripDemoTasks(loadFromStorage(STORAGE_KEYS.TASKS, [] as Task[])));
   const [channels, setChannels] = useState<CommunicationChannel[]>(() => loadFromStorage(STORAGE_KEYS.CHANNELS, initialChannels));
+  const [meetings, setMeetings] = useState<Meeting[]>(() => loadFromStorage(STORAGE_KEYS.MEETINGS, [] as Meeting[]));
   const [notificationsShown, setNotificationsShown] = useState<Set<string>>(() => {
     const stored = loadFromStorage<string[]>(STORAGE_KEYS.NOTIFICATIONS_SHOWN, []);
     return new Set(stored);
@@ -827,6 +852,9 @@ export function useStore() {
         : ([] as Task[]);
       const tasksNext = stripDemoTasks(tasksNextRaw);
       const channelsNext = Array.isArray(data.channels) ? data.channels : initialChannels;
+      const meetingsNext = Array.isArray(data.meetings)
+        ? data.meetings.map((m) => normalizeMeetingWire(m as unknown as Record<string, unknown>))
+        : [];
       const notificationsNext = Array.isArray(data.notificationsShown) ? data.notificationsShown : [];
       const pushNext = typeof data.pushNotificationsEnabled === 'boolean' ? data.pushNotificationsEnabled : false;
 
@@ -834,6 +862,7 @@ export function useStore() {
         users: usersNext,
         tasks: tasksNext,
         channels: channelsNext,
+        meetings: meetingsNext,
         notificationsShown: notificationsNext,
         pushNotificationsEnabled: pushNext,
       };
@@ -841,6 +870,7 @@ export function useStore() {
       setUsers(usersNext);
       setTasks(tasksNext);
       setChannels(channelsNext);
+      setMeetings(meetingsNext);
       setNotificationsShown(new Set(notificationsNext));
       setPushNotificationsEnabled(pushNext);
     } catch (e) {
@@ -876,6 +906,11 @@ export function useStore() {
 
   useEffect(() => {
     if (!currentUser) return;
+    localStorage.setItem(STORAGE_KEYS.MEETINGS, JSON.stringify(meetings));
+  }, [meetings, currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) return;
     localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS_SHOWN, JSON.stringify([...notificationsShown]));
   }, [notificationsShown, currentUser]);
 
@@ -894,6 +929,7 @@ export function useStore() {
       users,
       tasks,
       channels,
+      meetings,
       notificationsShown: [...notificationsShown],
       pushNotificationsEnabled,
     };
@@ -919,7 +955,7 @@ export function useStore() {
         remoteSaveTimerRef.current = null;
       }
     };
-  }, [users, tasks, channels, notificationsShown, pushNotificationsEnabled, currentUser]);
+  }, [users, tasks, channels, meetings, notificationsShown, pushNotificationsEnabled, currentUser]);
 
   useEffect(() => {
     if (!currentUser) {
@@ -1113,6 +1149,39 @@ export function useStore() {
     setTasks(tasks.filter(t => t.id !== taskId));
   };
 
+  const addMeeting = (input: Omit<Meeting, 'id' | 'createdAt' | 'createdBy'>) => {
+    if (!currentUser) return null;
+    const prep = input.preparation?.trim();
+    const newMeeting: Meeting = {
+      ...input,
+      location: input.location ?? '',
+      preparation: prep || undefined,
+      participantIds: Array.isArray(input.participantIds) ? input.participantIds : [],
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      createdAt: new Date().toISOString(),
+      createdBy: currentUser.id,
+    };
+    setMeetings((prev) => [...prev, newMeeting]);
+    return newMeeting;
+  };
+
+  const updateMeeting = (meetingId: string, updates: Partial<Meeting>) => {
+    setMeetings((prev) =>
+      prev.map((m) => {
+        if (m.id !== meetingId) return m;
+        const merged = { ...m, ...updates };
+        if (typeof merged.preparation === 'string' && !merged.preparation.trim()) {
+          merged.preparation = undefined;
+        }
+        return merged;
+      }),
+    );
+  };
+
+  const deleteMeeting = (meetingId: string) => {
+    setMeetings((prev) => prev.filter((m) => m.id !== meetingId));
+  };
+
   const getTasksForDate = (date: Date) => {
     const targetDate = startOfDay(date);
     const filtered = tasks.filter(task => {
@@ -1171,6 +1240,7 @@ export function useStore() {
     users,
     tasks,
     channels,
+    meetings,
     addUser,
     updateUser,
     deleteUser,
@@ -1181,6 +1251,9 @@ export function useStore() {
     updateTask,
     deleteTask,
     getTasksForDate,
+    addMeeting,
+    updateMeeting,
+    deleteMeeting,
     currentUser,
     setCurrentUser,
     requestPushNotificationsPermission,

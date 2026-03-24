@@ -3,7 +3,7 @@ import { TeamStats } from '../components/TeamStats';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Link } from 'react-router';
-import { BarChart3, Calendar, Users, CheckCircle2, AlertCircle, Info } from 'lucide-react';
+import { BarChart3, Calendar, CalendarClock, Users, CheckCircle2, AlertCircle, Info } from 'lucide-react';
 import { isBefore } from 'date-fns';
 import { filterUsersByPermissions, filterTasksByPermissions, hasFullAccess, getUserBlock } from '../utils/permissions';
 
@@ -121,6 +121,12 @@ export default function Dashboard() {
               <Button className="w-full" size="lg">
                 <Calendar className="h-5 w-5 mr-2" />
                 Открыть медиаплан
+              </Button>
+            </Link>
+            <Link to="/meetings" className="block">
+              <Button variant="outline" className="w-full" size="lg">
+                <CalendarClock className="h-5 w-5 mr-2" />
+                Планёр встреч
               </Button>
             </Link>
             <Link to="/team" className="block">
