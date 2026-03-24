@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -40,10 +40,29 @@ export function TaskDialog({ open, onOpenChange, onSave, users, channels, task }
   const [dayOfQuarter, setDayOfQuarter] = useState(task?.dayOfQuarter?.toString() || '1');
   const [kpiType, setKpiType] = useState<KPIType>(task?.kpiType || 'none');
   const [kpiTarget, setKpiTarget] = useState(task?.kpiTarget?.toString() || '');
+  const [withoutDeadline, setWithoutDeadline] = useState(!task?.deadline);
+
+  useEffect(() => {
+    if (!open) return;
+    setTitle(task?.title || '');
+    setDescription(task?.description || '');
+    setDeadline(task?.deadline ? new Date(task.deadline).toISOString().slice(0, 16) : '');
+    setCategory(task?.category || 'federal');
+    setAssignees(task?.assignees || []);
+    setSelectedChannels(task?.channels || []);
+    setRecurrence(task?.recurrence || 'none');
+    setDayOfWeek(task?.dayOfWeek?.toString() || '1');
+    setDayOfMonth(task?.dayOfMonth?.toString() || '1');
+    setMonthOfQuarter(task?.monthOfQuarter?.toString() || '1');
+    setDayOfQuarter(task?.dayOfQuarter?.toString() || '1');
+    setKpiType(task?.kpiType || 'none');
+    setKpiTarget(task?.kpiTarget?.toString() || '');
+    setWithoutDeadline(!task?.deadline);
+  }, [open, task]);
 
   const handleSave = () => {
-    if (!title || !deadline) {
-      alert('Заполните название и дедлайн');
+    if (!title) {
+      alert('Заполните название');
       return;
     }
 
@@ -52,13 +71,18 @@ export function TaskDialog({ open, onOpenChange, onSave, users, channels, task }
       return;
     }
 
+    if (!withoutDeadline && !deadline) {
+      alert('Укажите дедлайн или отметьте "Без дедлайна"');
+      return;
+    }
+
     const taskData: Omit<Task, 'id' | 'createdAt'> = {
       title,
       description,
-      deadline: new Date(deadline).toISOString(),
+      deadline: withoutDeadline ? undefined : new Date(deadline).toISOString(),
       category,
       assignees,
-      recurrence,
+      recurrence: withoutDeadline ? 'none' : recurrence,
       completed: task?.completed || false,
       completedAt: task?.completedAt,
       kpiType,
@@ -96,6 +120,7 @@ export function TaskDialog({ open, onOpenChange, onSave, users, channels, task }
     setDayOfQuarter('1');
     setKpiType('none');
     setKpiTarget('');
+    setWithoutDeadline(false);
   };
 
   const toggleAssignee = (userId: string) => {
@@ -150,13 +175,25 @@ export function TaskDialog({ open, onOpenChange, onSave, users, channels, task }
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="deadline">Дедлайн *</Label>
+              <Label htmlFor="deadline">Дедлайн</Label>
               <Input
                 id="deadline"
                 type="datetime-local"
                 value={deadline}
                 onChange={(e) => setDeadline(e.target.value)}
+                disabled={withoutDeadline}
               />
+              <label className="flex items-center gap-2 text-sm text-gray-600 mt-2">
+                <Checkbox
+                  checked={withoutDeadline}
+                  onCheckedChange={(checked) => {
+                    const next = checked === true;
+                    setWithoutDeadline(next);
+                    if (next) setDeadline('');
+                  }}
+                />
+                Без дедлайна
+              </label>
             </div>
 
             <div className="space-y-2">

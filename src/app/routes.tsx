@@ -1,13 +1,19 @@
+import { Suspense, lazy } from 'react';
 import { createHashRouter, Navigate } from 'react-router';
 import { useStore } from './store';
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import MediaPlan from './pages/MediaPlan';
-import Calendar from './pages/Calendar';
-import Team from './pages/Team';
-import Account from './pages/Account';
-import Archive from './pages/Archive';
 import Layout from './components/Layout';
+
+const Login = lazy(() => import('./pages/Login'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const MediaPlan = lazy(() => import('./pages/MediaPlan'));
+const Calendar = lazy(() => import('./pages/Calendar'));
+const Team = lazy(() => import('./pages/Team'));
+const Account = lazy(() => import('./pages/Account'));
+const Archive = lazy(() => import('./pages/Archive'));
+
+function PageLoader() {
+  return <div className="p-6 text-sm text-gray-500">Загрузка...</div>;
+}
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { currentUser } = useStore();
@@ -26,7 +32,11 @@ function LoginRoute() {
     return <Navigate to="/" replace />;
   }
   
-  return <Login />;
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <Login />
+    </Suspense>
+  );
 }
 
 // Hash-based routing makes the app work on any static server
@@ -46,27 +56,51 @@ export const router = createHashRouter([
     children: [
       {
         index: true,
-        element: <Dashboard />,
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <Dashboard />
+          </Suspense>
+        ),
       },
       {
         path: 'mediaplan',
-        element: <MediaPlan />,
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <MediaPlan />
+          </Suspense>
+        ),
       },
       {
         path: 'calendar',
-        element: <Calendar />,
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <Calendar />
+          </Suspense>
+        ),
       },
       {
         path: 'team',
-        element: <Team />,
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <Team />
+          </Suspense>
+        ),
       },
       {
         path: 'archive',
-        element: <Archive />,
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <Archive />
+          </Suspense>
+        ),
       },
       {
         path: 'account',
-        element: <Account />,
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <Account />
+          </Suspense>
+        ),
       },
     ],
   },

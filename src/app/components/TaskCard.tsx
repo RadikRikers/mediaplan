@@ -20,7 +20,8 @@ interface TaskCardProps {
 }
 
 export function TaskCard({ task, users, channels, onToggleComplete, onEdit, onDelete, archiveMode }: TaskCardProps) {
-  const isOverdue = !task.completed && isBefore(new Date(task.deadline), new Date());
+  const hasDeadline = Boolean(task.deadline);
+  const isOverdue = !task.completed && hasDeadline && isBefore(new Date(task.deadline as string), new Date());
   const assignedUsers = users.filter(u => task.assignees.includes(u.id));
   const taskChannels = channels.filter(c => task.channels?.includes(c.id));
 
@@ -115,7 +116,11 @@ export function TaskCard({ task, users, channels, onToggleComplete, onEdit, onDe
         <div className="flex flex-wrap gap-2 text-sm">
           <div className={cn('flex items-center gap-1', isOverdue && 'text-red-600 font-medium')}>
             <Clock className="h-4 w-4" />
-            <span>{format(new Date(task.deadline), 'dd MMM yyyy, HH:mm', { locale: ru })}</span>
+            <span>
+              {hasDeadline
+                ? format(new Date(task.deadline as string), 'dd MMM yyyy, HH:mm', { locale: ru })
+                : 'Без дедлайна'}
+            </span>
           </div>
 
           {task.recurrence !== 'none' && (
@@ -167,8 +172,8 @@ export function TaskCard({ task, users, channels, onToggleComplete, onEdit, onDe
         )}
 
         {archiveMode && task.completed && (() => {
-          const completedAt = task.completedAt ? new Date(task.completedAt) : new Date(task.deadline);
-          const purgeAfterDeadline = addDays(new Date(task.deadline), 2);
+          const completedAt = task.completedAt ? new Date(task.completedAt) : new Date();
+          const purgeAfterDeadline = task.deadline ? addDays(new Date(task.deadline), 2) : completedAt;
           const purgeAfterComplete = addDays(completedAt, 2);
           const purgeAt = new Date(
             Math.max(purgeAfterDeadline.getTime(), purgeAfterComplete.getTime()),

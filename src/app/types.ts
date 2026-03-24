@@ -36,7 +36,8 @@ export interface Task {
   id: string;
   title: string;
   description: string;
-  deadline: string;
+  /** ISO дата дедлайна; отсутствует для задач "без дедлайна" */
+  deadline?: string;
   assignees: string[]; // user IDs
   category: TaskCategory;
   completed: boolean;

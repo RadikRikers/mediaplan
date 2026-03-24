@@ -18,7 +18,7 @@ export default function Dashboard() {
 
   const activeTasks = visibleTasks.filter(t => !t.completed);
   const completedTasks = visibleTasks.filter(t => t.completed);
-  const overdueTasks = activeTasks.filter(t => isBefore(new Date(t.deadline), new Date()));
+  const overdueTasks = activeTasks.filter(t => t.deadline && isBefore(new Date(t.deadline), new Date()));
   const tasksWithKPI = visibleTasks.filter(t => t.kpiType !== 'none');
 
   return (

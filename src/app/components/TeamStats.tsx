@@ -9,19 +9,19 @@ interface TeamStatsProps {
 }
 
 export function TeamStats({ users, tasks }: TeamStatsProps) {
+  const MAX_TASKS_PER_USER = 30;
+
   const getUserStats = (userId: string) => {
     const userTasks = tasks.filter(t => t.assignees.includes(userId) && !t.completed);
-    const overdueTasks = userTasks.filter(t => isBefore(new Date(t.deadline), new Date()));
+    const overdueTasks = userTasks.filter(t => t.deadline && isBefore(new Date(t.deadline), new Date()));
     
-    // Оценка сложности: простая формула на основе количества задач
-    const complexity = userTasks.length * 10;
-    const maxComplexity = 100;
+    // 100% загруженности достигается при 30 активных задачах на человека.
+    const workload = Math.min((userTasks.length / MAX_TASKS_PER_USER) * 100, 100);
     
     return {
       totalTasks: userTasks.length,
       overdueTasks: overdueTasks.length,
-      complexity,
-      workload: Math.min((complexity / maxComplexity) * 100, 100),
+      workload,
     };
   };
 

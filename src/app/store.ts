@@ -22,6 +22,7 @@ const STORAGE_KEYS = {
 };
 
 const SESSION_USER_KEY = 'mediaplanning_session_user';
+const DEMO_TASK_IDS = new Set(Array.from({ length: 42 }, (_, i) => String(i + 1)));
 
 // Начальные пользователи (id 1–8 — команда, 9 — сервисный аккаунт для сохранения в localStorage)
 const initialUsers: User[] = [
@@ -735,12 +736,7 @@ function loadFromStorage<T>(key: string, defaultValue: T): T {
     if (stored) {
       const parsed = JSON.parse(stored);
       if (key === STORAGE_KEYS.USERS && Array.isArray(parsed)) {
-        const existingIds = new Set(parsed.map((u: any) => u.id));
-        const merged = [
-          ...parsed,
-          ...(Array.isArray(defaultValue) ? (defaultValue as User[]).filter((u) => !existingIds.has(u.id)) : []),
-        ];
-        return merged as T;
+        return parsed as T;
       }
       // Ensure backward compatibility for tasks
       if (key === STORAGE_KEYS.TASKS && Array.isArray(parsed)) {
@@ -751,15 +747,7 @@ function loadFromStorage<T>(key: string, defaultValue: T): T {
           completed: Boolean(task.completed),
           completedAt: task.completedAt,
         }));
-
-        // Merge in newly added demo tasks without removing user's existing changes.
-        const existingIds = new Set(normalized.map((t: any) => t.id));
-        const merged = [
-          ...normalized,
-          ...(Array.isArray(defaultValue) ? (defaultValue as any[]).filter((t) => !existingIds.has(t.id)) : []),
-        ];
-
-        return merged as T;
+        return normalized as T;
       }
       return parsed;
     }
@@ -799,6 +787,7 @@ function migrateServiceUserId(u: User): User {
 function normalizeTaskWire(raw: Record<string, unknown>): Task {
   return {
     ...(raw as unknown as Task),
+    deadline: typeof raw.deadline === 'string' && raw.deadline ? raw.deadline : undefined,
     channels: Array.isArray(raw.channels) ? (raw.channels as string[]) : [],
     kpiType: (raw.kpiType as Task['kpiType']) || 'none',
     completed: Boolean(raw.completed),
@@ -806,9 +795,13 @@ function normalizeTaskWire(raw: Record<string, unknown>): Task {
   };
 }
 
+function stripDemoTasks(tasks: Task[]): Task[] {
+  return tasks.filter((task) => !DEMO_TASK_IDS.has(task.id));
+}
+
 export function useStore() {
   const [users, setUsers] = useState<User[]>(() => loadFromStorage(STORAGE_KEYS.USERS, initialUsers));
-  const [tasks, setTasks] = useState<Task[]>(() => loadFromStorage(STORAGE_KEYS.TASKS, initialTasks));
+  const [tasks, setTasks] = useState<Task[]>(() => stripDemoTasks(loadFromStorage(STORAGE_KEYS.TASKS, [] as Task[])));
   const [channels, setChannels] = useState<CommunicationChannel[]>(() => loadFromStorage(STORAGE_KEYS.CHANNELS, initialChannels));
   const [notificationsShown, setNotificationsShown] = useState<Set<string>>(() => {
     const stored = loadFromStorage<string[]>(STORAGE_KEYS.NOTIFICATIONS_SHOWN, []);
@@ -828,11 +821,12 @@ export function useStore() {
     if (!isRemoteSyncConfigured()) return;
     try {
       const data = await fetchRemoteState();
-      const usersNext = data.users?.length ? data.users : initialUsers;
-      const tasksNext = data.tasks?.length
+      const usersNext = Array.isArray(data.users) ? data.users : initialUsers;
+      const tasksNextRaw = Array.isArray(data.tasks)
         ? data.tasks.map((t) => normalizeTaskWire(t as unknown as Record<string, unknown>))
-        : initialTasks;
-      const channelsNext = data.channels?.length ? data.channels : initialChannels;
+        : ([] as Task[]);
+      const tasksNext = stripDemoTasks(tasksNextRaw);
+      const channelsNext = Array.isArray(data.channels) ? data.channels : initialChannels;
       const notificationsNext = Array.isArray(data.notificationsShown) ? data.notificationsShown : [];
       const pushNext = typeof data.pushNotificationsEnabled === 'boolean' ? data.pushNotificationsEnabled : false;
 
@@ -950,8 +944,8 @@ export function useStore() {
         const now = new Date();
         return prev.filter((t) => {
           if (!t.completed) return true;
-          const completedAt = t.completedAt ? new Date(t.completedAt) : new Date(t.deadline);
-          const purgeAfterDeadline = addDays(new Date(t.deadline), 2);
+          const completedAt = t.completedAt ? new Date(t.completedAt) : new Date();
+          const purgeAfterDeadline = t.deadline ? addDays(new Date(t.deadline), 2) : completedAt;
           const purgeAfterComplete = addDays(completedAt, 2);
           const purgeAt = new Date(
             Math.max(purgeAfterDeadline.getTime(), purgeAfterComplete.getTime()),
@@ -1006,6 +1000,7 @@ export function useStore() {
       
       tasks.forEach(task => {
         if (task.completed) return;
+        if (!task.deadline) return;
         
         const deadline = new Date(task.deadline);
         const hoursUntilDeadline = differenceInHours(deadline, now);
@@ -1122,6 +1117,7 @@ export function useStore() {
     const targetDate = startOfDay(date);
     const filtered = tasks.filter(task => {
       if (task.completed) return false;
+      if (!task.deadline) return true;
 
       const taskDeadline = startOfDay(new Date(task.deadline));
       
@@ -1160,6 +1156,9 @@ export function useStore() {
     // Сортируем по дедлайну: от самого раннего к самому позднему.
     // Это гарантирует стабильный порядок на экране и при перезагрузке.
     return filtered.sort((a, b) => {
+      if (!a.deadline && !b.deadline) return a.title.localeCompare(b.title, 'ru');
+      if (!a.deadline) return 1;
+      if (!b.deadline) return -1;
       const ta = new Date(a.deadline).getTime();
       const tb = new Date(b.deadline).getTime();
       if (ta !== tb) return ta - tb;

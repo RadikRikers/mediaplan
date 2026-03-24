@@ -75,28 +75,6 @@ export default function Login() {
             </Button>
           </form>
 
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-            <p className="text-xs font-medium text-gray-700 mb-2">Демо-аккаунты:</p>
-            <div className="space-y-1 text-xs text-gray-600">
-              <p><strong>Капустин Родион</strong> / demo1 (Старший SMM — полный доступ)</p>
-              <p><strong>Ермакова Виктория</strong> / demo2 (SMM)</p>
-              <p><strong>Говорик Екатерина</strong> / demo7 (SMM)</p>
-              <p><strong>Поздеева Анжела</strong> / demo3 (Редактор — полный доступ)</p>
-              <p><strong>Филатова Юлиана</strong> / demo4 (Копирайтер)</p>
-              <p><strong>Антуганова Анна</strong> / demo8 (Копирайтер)</p>
-              <p><strong>Асадуллин Наиль</strong> / demo5 (Дизайнер)</p>
-              <p><strong>Валеев Тимур</strong> / demo6 (Видеограф)</p>
-              <p className="pt-2 border-t border-gray-200 mt-2">
-                <strong>Сервисный аккаунт</strong> / service2024 (полный доступ,{' '}
-                <span className="text-blue-700">сохранение данных в браузере</span>)
-              </p>
-            </div>
-            <div className="mt-3 pt-3 border-t border-gray-300">
-              <p className="text-xs text-gray-600">
-                <strong>Права доступа:</strong> Редактор и Старший SMM видят всё. Остальные - только свои задачи и свой блок.
-              </p>
-            </div>
-          </div>
         </CardContent>
       </Card>
     </div>
