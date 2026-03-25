@@ -1111,8 +1111,11 @@ function normalizeMeetingWire(raw: Record<string, unknown>): Meeting {
   };
 }
 
+// Ранее здесь удалялись "demo"-задачи (id 1..42) при загрузке из Supabase.
+// Это приводило к потере данных пользователей, если они редактировали стартовые demo-задачи
+// и синхронизировали их обратно на сервер. Поэтому сейчас фильтрация отключена.
 function stripDemoTasks(tasks: Task[]): Task[] {
-  return tasks.filter((task) => !DEMO_TASK_IDS.has(task.id));
+  return tasks;
 }
 
 /** Имя без учёта регистра (кириллица); пароль — посимвольно как задан */
@@ -1135,9 +1138,9 @@ function buildStatePayloadFromRemote(data: RemoteStatePayload): RemoteStatePaylo
   }
 
   const tasksRaw = Array.isArray(data.tasks) ? data.tasks : [];
-  const tasksNext = stripDemoTasks(
-    tasksRaw.map((t) => normalizeTaskWire(t as unknown as Record<string, unknown>)),
-  );
+  let tasksNext = tasksRaw.map((t) => normalizeTaskWire(t as unknown as Record<string, unknown>));
+  // Если на сервере пока пусто — показываем локальный seed.
+  if (tasksNext.length === 0) tasksNext = [...initialTasks];
 
   const channelsNext =
     Array.isArray(data.channels) && data.channels.length > 0 ? data.channels : initialChannels;
@@ -1231,7 +1234,7 @@ function taskOccursOnCalendarDay(task: Task, targetDate: Date): boolean {
 
 export function useStore() {
   const [users, setUsers] = useState<User[]>(() => loadFromStorage(STORAGE_KEYS.USERS, initialUsers));
-  const [tasks, setTasks] = useState<Task[]>(() => stripDemoTasks(loadFromStorage(STORAGE_KEYS.TASKS, [] as Task[])));
+  const [tasks, setTasks] = useState<Task[]>(() => loadFromStorage(STORAGE_KEYS.TASKS, [] as Task[]));
   const [channels, setChannels] = useState<CommunicationChannel[]>(() => loadFromStorage(STORAGE_KEYS.CHANNELS, initialChannels));
   const [meetings, setMeetings] = useState<Meeting[]>(() => loadFromStorage(STORAGE_KEYS.MEETINGS, [] as Meeting[]));
   const [staffBlocks, setStaffBlocks] = useState<StaffBlock[]>(() =>
