@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { format, isSameDay, startOfWeek, addDays } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useStore } from '../store';
@@ -54,6 +54,7 @@ export default function ContentPlan() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingPublicId, setEditingPublicId] = useState<string | null>(null);
+  const [activePublicId, setActivePublicId] = useState<string>('');
   const [editingDay, setEditingDay] = useState<Date | null>(null);
   const [editingSlotIndex, setEditingSlotIndex] = useState<number>(0);
   const [postTitle, setPostTitle] = useState('');
@@ -71,6 +72,21 @@ export default function ContentPlan() {
     if (!currentUser || isServiceAccount(currentUser)) return [];
     return channels.filter((c) => c.kind === 'public' && c.ownerUserId === currentUser.id);
   }, [channels, currentUser]);
+
+  useEffect(() => {
+    if (publics.length === 0) {
+      if (activePublicId) setActivePublicId('');
+      return;
+    }
+
+    if (!activePublicId) {
+      setActivePublicId(publics[0]?.id ?? '');
+      return;
+    }
+
+    const stillExists = publics.some((p) => p.id === activePublicId);
+    if (!stillExists) setActivePublicId(publics[0]?.id ?? '');
+  }, [publics, activePublicId]);
 
   const findPostInSlot = (publicId: string, day: Date, slot: Slot): Task | null => {
     const targetTime = slot.time;
@@ -195,6 +211,28 @@ export default function ContentPlan() {
     toast.success('Паблик создан');
   };
 
+  const handleDeletePublic = (publicId: string) => {
+    if (!currentUser) return;
+    const pub = publics.find((p) => p.id === publicId);
+    const n = pub?.name ?? 'этот паблик';
+
+    if (!confirm(`Удалить паблик «${n}» и все связанные посты?`)) return;
+
+    const postsToDelete = tasks.filter(
+      (t) => t.category === 'bloggers' && t.channels.includes(publicId),
+    );
+    postsToDelete.forEach((t) => deleteTask(t.id));
+    deleteChannel(publicId);
+
+    if (editingPublicId === publicId) {
+      setDialogOpen(false);
+      resetDialog();
+    }
+
+    // activePublicId обновится через useEffect по publics
+    toast.success('Паблик удалён');
+  };
+
   if (!currentUser) return null;
   if (isServiceAccount(currentUser)) {
     return (
@@ -268,7 +306,7 @@ export default function ContentPlan() {
           </CardContent>
         </Card>
       ) : (
-        <Tabs defaultValue={publics[0]?.id} className="w-full">
+        <Tabs value={activePublicId} onValueChange={setActivePublicId} className="w-full">
           <TabsList className="flex flex-wrap h-auto gap-1">
             {publics.map((p) => (
               <TabsTrigger key={p.id} value={p.id} className="text-xs sm:text-sm px-2 py-2">
@@ -281,10 +319,22 @@ export default function ContentPlan() {
             <TabsContent key={p.id} value={p.id} className="mt-4">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="text-lg">{p.name}</CardTitle>
-                  <div className="text-sm text-gray-500">
-                    {format(weekStart, 'd MMM', { locale: ru })} — {format(addDays(weekStart, 6), 'd MMM yyyy', { locale: ru })}
+                  <div className="flex items-center gap-3 min-w-0">
+                    <CardTitle className="text-lg truncate">{p.name}</CardTitle>
+                    <div className="text-sm text-gray-500 hidden sm:block">
+                      {format(weekStart, 'd MMM', { locale: ru })} —{' '}
+                      {format(addDays(weekStart, 6), 'd MMM yyyy', { locale: ru })}
+                    </div>
                   </div>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleDeletePublic(p.id)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Удалить паблик
+                  </Button>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-7 gap-3">
