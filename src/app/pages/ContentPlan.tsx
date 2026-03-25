@@ -11,7 +11,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+// Контент-план рисуется как матрица (паблики х дни/слоты), без Tabs
 import { Plus, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { isServiceAccount } from '../constants/serviceAccount';
@@ -54,7 +54,6 @@ export default function ContentPlan() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingPublicId, setEditingPublicId] = useState<string | null>(null);
-  const [activePublicId, setActivePublicId] = useState<string>('');
   const [editingDay, setEditingDay] = useState<Date | null>(null);
   const [editingSlotIndex, setEditingSlotIndex] = useState<number>(0);
   const [postTitle, setPostTitle] = useState('');
@@ -73,20 +72,7 @@ export default function ContentPlan() {
     return channels.filter((c) => c.kind === 'public' && c.ownerUserId === currentUser.id);
   }, [channels, currentUser]);
 
-  useEffect(() => {
-    if (publics.length === 0) {
-      if (activePublicId) setActivePublicId('');
-      return;
-    }
-
-    if (!activePublicId) {
-      setActivePublicId(publics[0]?.id ?? '');
-      return;
-    }
-
-    const stillExists = publics.some((p) => p.id === activePublicId);
-    if (!stillExists) setActivePublicId(publics[0]?.id ?? '');
-  }, [publics, activePublicId]);
+  // Tabs больше не используются: матрица отображает все паблики сразу.
 
   const findPostInSlot = (publicId: string, day: Date, slot: Slot): Task | null => {
     const targetTime = slot.time;
@@ -229,7 +215,6 @@ export default function ContentPlan() {
       resetDialog();
     }
 
-    // activePublicId обновится через useEffect по publics
     toast.success('Паблик удалён');
   };
 
@@ -306,89 +291,84 @@ export default function ContentPlan() {
           </CardContent>
         </Card>
       ) : (
-        <Tabs value={activePublicId} onValueChange={setActivePublicId} className="w-full">
-          <TabsList className="flex flex-wrap h-auto gap-1">
-            {publics.map((p) => (
-              <TabsTrigger key={p.id} value={p.id} className="text-xs sm:text-sm px-2 py-2">
-                {p.name}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+        <div className="overflow-x-auto">
+          <div className="min-w-[980px] space-y-3">
+            {/* Заголовок дней */}
+            <div className="grid grid-cols-[240px_repeat(7,minmax(120px,1fr))] gap-2">
+              <div />
+              {weekDays.map((day) => (
+                <div
+                  key={day.toISOString()}
+                  className="text-center text-xs font-semibold text-gray-700 px-2"
+                >
+                  {format(day, 'EEE dd.MM', { locale: ru })}
+                </div>
+              ))}
+            </div>
 
-          {publics.map((p) => (
-            <TabsContent key={p.id} value={p.id} className="mt-4">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <CardTitle className="text-lg truncate">{p.name}</CardTitle>
-                    <div className="text-sm text-gray-500 hidden sm:block">
-                      {format(weekStart, 'd MMM', { locale: ru })} —{' '}
-                      {format(addDays(weekStart, 6), 'd MMM yyyy', { locale: ru })}
-                    </div>
-                  </div>
+            {publics.map((p) => (
+              <div
+                key={p.id}
+                className="grid grid-cols-[240px_repeat(7,minmax(120px,1fr))] gap-2 items-start"
+              >
+                <div className="border rounded-lg bg-white p-2 flex items-center justify-between gap-2">
+                  <CardTitle className="text-sm font-semibold truncate">{p.name}</CardTitle>
                   <Button
                     type="button"
                     variant="destructive"
                     size="sm"
                     onClick={() => handleDeletePublic(p.id)}
+                    className="shrink-0"
                   >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Удалить паблик
+                    <Trash2 className="h-4 w-4" />
                   </Button>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-7 gap-3">
-                    {weekDays.map((day) => (
-                      <div key={day.toISOString()} className="border rounded-lg bg-white p-2">
-                        <div className="text-xs font-semibold text-gray-900 mb-2">
-                          {format(day, 'EEE dd.MM', { locale: ru })}
-                        </div>
+                </div>
 
-                        <div className="space-y-2">
-                          {SLOT_TIMES.map((slot) => {
-                            const existing = findPostInSlot(p.id, day, slot);
-                            return (
-                              <div key={slot.index} className="relative">
-                                <Button
-                                  type="button"
-                                  variant={existing ? 'default' : 'outline'}
-                                  className="w-full justify-start h-auto py-2 px-2"
-                                  onClick={() => openCreate(p.id, day, slot.index)}
-                                >
-                                  <div className="flex flex-col items-start">
-                                    <span className="text-[10px] text-gray-700/80">{slot.time}</span>
-                                    <span className="text-sm font-medium line-clamp-2">
-                                      {existing ? existing.title : 'Добавить пост'}
-                                    </span>
-                                  </div>
-                                </Button>
-
-                                {existing && (
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    className="absolute -top-1 -right-1 h-6 w-6 bg-white/80 hover:bg-white"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDeletePost(p.id, day, slot.index);
-                                    }}
-                                  >
-                                    <Trash2 className="h-4 w-4 text-red-600" />
-                                  </Button>
-                                )}
+                {weekDays.map((day) => (
+                  <div key={day.toISOString()} className="border rounded-lg bg-white p-2">
+                    <div className="space-y-2">
+                      {SLOT_TIMES.map((slot) => {
+                        const existing = findPostInSlot(p.id, day, slot);
+                        return (
+                          <div key={slot.index} className="relative">
+                            <Button
+                              type="button"
+                              variant={existing ? 'default' : 'outline'}
+                              className="w-full justify-start h-auto py-2 px-2"
+                              onClick={() => openCreate(p.id, day, slot.index)}
+                            >
+                              <div className="flex flex-col items-start">
+                                <span className="text-[10px] text-gray-700/80">{slot.time}</span>
+                                <span className="text-sm font-medium line-clamp-2">
+                                  {existing ? existing.title : 'Добавить пост'}
+                                </span>
                               </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
+                            </Button>
+
+                            {existing && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="absolute -top-1 -right-1 h-6 w-6 bg-white/80 hover:bg-white"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeletePost(p.id, day, slot.index);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4 text-red-600" />
+                              </Button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          ))}
-        </Tabs>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       <Dialog open={dialogOpen} onOpenChange={(o) => setDialogOpen(o)}>

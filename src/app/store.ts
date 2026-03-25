@@ -1277,6 +1277,8 @@ export function useStore() {
   const cloudErrorResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Пока false — не отправляем PUT, чтобы не затереть БД старым localStorage до ответа GET */
   const remoteHydratedRef = useRef(!isRemoteSyncConfigured());
+  /** Защищаемся от одновременных pull-проходов */
+  const remotePullInFlightRef = useRef(false);
 
   const usersRef = useRef(users);
   usersRef.current = users;
@@ -1358,6 +1360,29 @@ export function useStore() {
     }
     remoteHydratedRef.current = false;
     void pullFromServer();
+  }, [currentUser?.id, pullFromServer]);
+
+  // Периодически подтягиваем серверное состояние, чтобы несколько устройств не
+  // перезаписывали друг друга "последним payload".
+  useEffect(() => {
+    if (!currentUser) return;
+    if (!isRemoteSyncConfigured()) return;
+
+    const intervalMs = 30_000;
+    const id = setInterval(() => {
+      if (remotePullInFlightRef.current) return;
+      remotePullInFlightRef.current = true;
+      remoteHydratedRef.current = false;
+      void pullFromServer()
+        .catch(() => {
+          /* pullFromServer сам покажет тост/статус */
+        })
+        .finally(() => {
+          remotePullInFlightRef.current = false;
+        });
+    }, intervalMs);
+
+    return () => clearInterval(id);
   }, [currentUser?.id, pullFromServer]);
 
   useEffect(() => {
