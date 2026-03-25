@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useStore } from '../store';
+import { withoutGhostServiceUser } from '../constants/serviceAccount';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Calendar as CalendarComponent } from '../components/ui/calendar';
 import { TaskCard } from '../components/TaskCard';
@@ -26,6 +27,8 @@ export default function Calendar() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>(undefined);
+
+  const usersForUi = useMemo(() => withoutGhostServiceUser(users), [users]);
 
   // Фильтруем задачи по правам доступа
   const allTasksForDate = getCalendarTasksForDate(selectedDate);
@@ -118,7 +121,7 @@ export default function Calendar() {
                   <TaskCard
                     key={task.id}
                     task={task}
-                    users={users}
+                    users={usersForUi}
                     channels={channels}
                     jobPositions={jobPositions}
                     onToggleComplete={handleToggleComplete}
@@ -139,7 +142,7 @@ export default function Calendar() {
           if (!open) setEditingTask(undefined);
         }}
         onSave={handleSaveTask}
-        users={users}
+        users={usersForUi}
         channels={channels}
         jobPositions={jobPositions}
         task={editingTask}

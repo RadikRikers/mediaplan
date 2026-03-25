@@ -7,6 +7,7 @@ import {
   recurrenceLabels,
   displayTaskTypeLabel,
 } from '../types';
+import { SERVICE_USER_ID } from '../constants/serviceAccount';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -40,7 +41,9 @@ export function TaskCard({
 }: TaskCardProps) {
   const hasDeadline = Boolean(task.deadline);
   const isOverdue = !task.completed && hasDeadline && isBefore(new Date(task.deadline as string), new Date());
-  const assignedUsers = users.filter(u => task.assignees.includes(u.id));
+  const assignedUsers = users.filter(
+    (u) => task.assignees.includes(u.id) && u.id !== SERVICE_USER_ID,
+  );
   const taskChannels = channels.filter(c => task.channels?.includes(c.id));
 
   const getRecurrenceDetails = () => {

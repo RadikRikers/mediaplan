@@ -79,29 +79,41 @@ export default function Layout() {
     navigate('/login');
   };
 
-  const navigation = [
+  const navigationPrimary = [
     { name: 'Дашборд', href: '/', icon: LayoutDashboard },
     { name: 'Медиаплан', href: '/mediaplan', icon: ClipboardList },
     { name: 'Встречи', href: '/meetings', icon: CalendarClock },
     { name: 'Календарь', href: '/calendar', icon: Calendar },
+  ];
+
+  const navigationSecondary = [
     { name: 'Команда', href: '/team', icon: Users },
     { name: 'Архив', href: '/archive', icon: Archive },
     { name: 'Аккаунт', href: '/account', icon: KeyRound },
   ];
 
+  const desktopNavLinkClass = ({ isActive }: { isActive: boolean }) =>
+    cn(
+      'inline-flex items-center border-b-2 pb-2 text-sm font-medium transition-colors shrink-0',
+      isActive
+        ? 'border-blue-600 text-gray-900'
+        : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-800',
+    );
+
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center min-w-0">
+          {/* Строка 1: мобильное меню, название, облако, профиль */}
+          <div className="flex justify-between items-center gap-3 py-3 min-h-14">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
               <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
                 <SheetTrigger asChild>
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="sm:hidden mr-1 shrink-0"
+                    className="md:hidden shrink-0"
                     aria-label="Открыть меню"
                   >
                     <Menu className="h-5 w-5" />
@@ -111,8 +123,9 @@ export default function Layout() {
                   <SheetHeader>
                     <SheetTitle>Разделы</SheetTitle>
                   </SheetHeader>
-                  <nav className="flex flex-col gap-1 mt-6">
-                    {navigation.map((item) => {
+                  <p className="text-xs font-medium text-muted-foreground mt-4 mb-1">Работа</p>
+                  <nav className="flex flex-col gap-1">
+                    {navigationPrimary.map((item) => {
                       const Icon = item.icon;
                       return (
                         <NavLink
@@ -133,65 +146,93 @@ export default function Layout() {
                       );
                     })}
                   </nav>
+                  <p className="text-xs font-medium text-muted-foreground mt-4 mb-1">Команда и профиль</p>
+                  <nav className="flex flex-col gap-1">
+                    {navigationSecondary.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <NavLink
+                          key={item.name}
+                          to={item.href}
+                          onClick={() => setMenuOpen(false)}
+                          className={({ isActive }) =>
+                            cn(
+                              'flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors',
+                              isActive ? 'bg-blue-50 text-blue-800' : 'text-gray-700 hover:bg-gray-50',
+                            )
+                          }
+                        >
+                          <Icon className="h-4 w-4 shrink-0" />
+                          {item.name}
+                        </NavLink>
+                      );
+                    })}
+                  </nav>
                   <p className="mt-6 text-xs text-muted-foreground leading-relaxed">
-                    Планёр встреч — отдельная вкладка с недельной сеткой по времени.
+                    Планёр встреч — недельная сетка по времени.
                   </p>
                 </SheetContent>
               </Sheet>
-              <div className="flex-shrink-0 flex items-center min-w-0">
-                <h1 className="text-xl font-bold text-gray-900 truncate">Медиапланирование</h1>
-              </div>
-              <div className="hidden sm:ml-6 sm:flex sm:space-x-6 lg:space-x-8">
-                {navigation.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <NavLink
-                      key={item.name}
-                      to={item.href}
-                      end={item.href === '/'}
-                      className={({ isActive }) =>
-                        cn(
-                          'inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors',
-                          isActive
-                            ? 'border-blue-600 text-gray-900'
-                            : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-800',
-                        )
-                      }
-                    >
-                      <Icon className="h-4 w-4 mr-2 shrink-0" />
-                      {item.name}
-                    </NavLink>
-                  );
-                })}
-              </div>
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate min-w-0">
+                Медиапланирование
+              </h1>
             </div>
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               {currentUser && isRemoteSyncConfigured() && (
                 <CloudSyncIndicator status={cloudSyncStatus} />
               )}
               {currentUser && (
                 <>
-                  <div className="text-sm text-right min-w-0">
-                    <div className="font-medium text-gray-900 truncate max-w-[10rem] sm:max-w-none">
-                      {currentUser.name}
-                    </div>
-                    <div className="text-gray-500 truncate max-w-[10rem] sm:max-w-[14rem]">
+                  <div
+                    className="text-xs sm:text-sm text-right min-w-0 max-w-[9rem] sm:max-w-[12rem] md:max-w-[15rem]"
+                    title={`${currentUser.name} · ${displayTaskTypeLabel(currentUser, jobPositions)} · ${permissionLabels[currentUser.permissionLevel]}`}
+                  >
+                    <div className="font-medium text-gray-900 truncate">{currentUser.name}</div>
+                    <div className="text-gray-500 truncate hidden sm:block text-xs">
                       {displayTaskTypeLabel(currentUser, jobPositions)}
                     </div>
-                    <div className="text-xs text-gray-400">{permissionLabels[currentUser.permissionLevel]}</div>
+                    <div className="text-[10px] sm:text-xs text-gray-400 truncate">
+                      {permissionLabels[currentUser.permissionLevel]}
+                    </div>
                   </div>
-                  <Button variant="outline" size="sm" className="shrink-0" onClick={handleLogout}>
-                    <LogOut className="h-4 w-4 mr-2" />
-                    Выход
+                  <Button variant="outline" size="sm" className="shrink-0 px-2 sm:px-3" onClick={handleLogout}>
+                    <LogOut className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Выход</span>
                   </Button>
                 </>
               )}
             </div>
           </div>
+
+          {/* Строка 2 (desktop): основные разделы */}
+          <div className="hidden md:flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-slate-100 py-2.5">
+            {navigationPrimary.map((item) => {
+              const Icon = item.icon;
+              return (
+                <NavLink key={item.name} to={item.href} end={item.href === '/'} className={desktopNavLinkClass}>
+                  <Icon className="h-4 w-4 mr-2 shrink-0" />
+                  {item.name}
+                </NavLink>
+              );
+            })}
+          </div>
+
+          {/* Строка 3 (desktop): команда, архив, аккаунт */}
+          <div className="hidden md:flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-slate-100 py-2.5 pb-3">
+            {navigationSecondary.map((item) => {
+              const Icon = item.icon;
+              return (
+                <NavLink key={item.name} to={item.href} className={desktopNavLinkClass}>
+                  <Icon className="h-4 w-4 mr-2 shrink-0" />
+                  {item.name}
+                </NavLink>
+              );
+            })}
+          </div>
         </div>
       </nav>
 
-      <main className="min-h-[calc(100vh-4rem)] border-t border-slate-100/80 bg-slate-50/50">
+      <main className="min-h-[calc(100vh-7rem)] md:min-h-[calc(100vh-11rem)] border-t border-slate-100/80 bg-slate-50/50">
         <Outlet />
       </main>
     </div>

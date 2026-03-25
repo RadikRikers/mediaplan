@@ -1274,6 +1274,12 @@ export function useStore() {
       setJobPositions(payload.jobPositions);
       setNotificationsShown(new Set(payload.notificationsShown));
       setPushNotificationsEnabled(payload.pushNotificationsEnabled);
+      // При серверной синхронизации права и пароль текущего пользователя всегда берём из payload.
+      setCurrentUser((prev) => {
+        if (!prev) return prev;
+        const fresh = payload.users.find((u) => u.id === prev.id);
+        return fresh ?? null;
+      });
       setCloudSyncStatus('ready');
       return true;
     } catch (e) {
@@ -1311,7 +1317,8 @@ export function useStore() {
       } catch (e) {
         console.error(e);
         setCloudSyncStatus('error');
-        toast.error('Не удалось загрузить данные с сервера.');
+        toast.error('Не удалось загрузить данные с сервера. Вход без сервера отключён.');
+        return null;
       }
       return usersRef.current.find((u) => credentialsMatch(u, trimmed, password)) ?? null;
     },

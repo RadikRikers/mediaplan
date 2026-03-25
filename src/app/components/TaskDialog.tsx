@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -26,6 +26,7 @@ import {
   displayTaskTypeLabel,
 } from '../types';
 import { toast } from 'sonner';
+import { withoutGhostServiceUser, SERVICE_USER_ID } from '../constants/serviceAccount';
 
 interface TaskDialogProps {
   open: boolean;
@@ -38,6 +39,7 @@ interface TaskDialogProps {
 }
 
 export function TaskDialog({ open, onOpenChange, onSave, users, channels, jobPositions = [], task }: TaskDialogProps) {
+  const assigneePickerUsers = useMemo(() => withoutGhostServiceUser(users), [users]);
   const [title, setTitle] = useState(task?.title || '');
   const [description, setDescription] = useState(task?.description || '');
   const [deadline, setDeadline] = useState(
@@ -61,7 +63,7 @@ export function TaskDialog({ open, onOpenChange, onSave, users, channels, jobPos
     setDescription(task?.description || '');
     setDeadline(task?.deadline ? new Date(task.deadline).toISOString().slice(0, 16) : '');
     setCategory(task?.category || 'federal');
-    setAssignees(task?.assignees || []);
+    setAssignees((task?.assignees || []).filter((id) => id !== SERVICE_USER_ID));
     setSelectedChannels(task?.channels || []);
     setRecurrence(task?.recurrence || 'none');
     setDayOfWeek(task?.dayOfWeek?.toString() || '1');
@@ -79,7 +81,8 @@ export function TaskDialog({ open, onOpenChange, onSave, users, channels, jobPos
       return;
     }
 
-    if (assignees.length === 0) {
+    const assigneesClean = assignees.filter((id) => id !== SERVICE_USER_ID);
+    if (assigneesClean.length === 0) {
       toast.error('Выберите хотя бы одного ответственного');
       return;
     }
@@ -88,13 +91,12 @@ export function TaskDialog({ open, onOpenChange, onSave, users, channels, jobPos
       toast.error('Укажите дедлайн или отметьте «Без дедлайна»');
       return;
     }
-
     const taskData: Omit<Task, 'id' | 'createdAt'> = {
       title: title.trim(),
       description: description.trim(),
       deadline: withoutDeadline ? undefined : new Date(deadline).toISOString(),
       category,
-      assignees,
+      assignees: assigneesClean,
       recurrence: withoutDeadline ? 'none' : recurrence,
       completed: task?.completed || false,
       completedAt: task?.completedAt,
@@ -315,7 +317,7 @@ export function TaskDialog({ open, onOpenChange, onSave, users, channels, jobPos
           <div className="space-y-2">
             <Label>Ответственные *</Label>
             <div className="border rounded-md p-4 space-y-3 max-h-48 overflow-y-auto">
-              {users.map(user => (
+              {assigneePickerUsers.map((user) => (
                 <div key={user.id} className="flex items-center space-x-2">
                   <Checkbox
                     id={`user-${user.id}`}

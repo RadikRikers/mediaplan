@@ -1,4 +1,6 @@
+import { useMemo } from 'react';
 import { useStore } from '../store';
+import { withoutGhostServiceUser } from '../constants/serviceAccount';
 import { TeamStats } from '../components/TeamStats';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -13,6 +15,7 @@ export default function Dashboard() {
   // Фильтруем пользователей и задачи по правам доступа
   const visibleUsers = filterUsersByPermissions(users, currentUser, staffBlocks);
   const visibleTasks = filterTasksByPermissions(tasks, currentUser, users, staffBlocks);
+  const displayUsers = useMemo(() => withoutGhostServiceUser(visibleUsers), [visibleUsers]);
   const seesAll = hasBroadAccess(currentUser);
   const blockName = currentUser ? staffBlocks.find((b) => b.id === currentUser.blockId)?.name : null;
 
@@ -112,7 +115,7 @@ export default function Dashboard() {
               </Button>
             </Link>
           </div>
-          <TeamStats users={visibleUsers} tasks={visibleTasks} jobPositions={jobPositions} />
+          <TeamStats users={displayUsers} tasks={visibleTasks} jobPositions={jobPositions} />
         </div>
 
         <div>
@@ -143,7 +146,7 @@ export default function Dashboard() {
               <CardTitle className="text-base">Команда</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{visibleUsers.length}</div>
+              <div className="text-3xl font-bold">{displayUsers.length}</div>
               <p className="text-sm text-gray-500 mt-1">Всего сотрудников</p>
             </CardContent>
           </Card>

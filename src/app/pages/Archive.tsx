@@ -1,14 +1,19 @@
+import { useMemo } from 'react';
 import { useStore } from '../store';
+import { withoutGhostServiceUser } from '../constants/serviceAccount';
 import { TaskCard } from '../components/TaskCard';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { filterTasksByPermissions } from '../utils/permissions';
 import { isServiceAccount } from '../constants/serviceAccount';
+import { isRemoteSyncConfigured } from '../api/backend';
 import { Archive as ArchiveIcon } from 'lucide-react';
 
 export default function Archive() {
   const { users, tasks, channels, currentUser, staffBlocks, jobPositions, deleteTask, updateTask } =
     useStore();
+
+  const usersForUi = useMemo(() => withoutGhostServiceUser(users), [users]);
 
   const archivedTasks = filterTasksByPermissions(
     tasks.filter((t) => Boolean(t.completed)),
@@ -42,11 +47,11 @@ export default function Archive() {
         <p className="text-gray-600 mt-2">
           Выполненные задачи. Через 2 суток после дедлайна они удаляются автоматически.
         </p>
-        {!isServiceAccount(currentUser) && (
+        {!isServiceAccount(currentUser) && !isRemoteSyncConfigured() && (
           <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mt-3">
-            Сохранение данных на устройстве доступно только при входе под{' '}
-            <strong>сервисным аккаунтом</strong>. Ваши действия в этой сессии не записываются в постоянное
-            хранилище.
+            Локальное сохранение на устройстве доступно только при входе под{' '}
+            <strong>учётной записью с полными правами</strong>. В этой сессии действия могут не сохраняться
+            после закрытия вкладки.
           </p>
         )}
       </div>
@@ -66,7 +71,7 @@ export default function Archive() {
             <div key={task.id} className="space-y-2">
               <TaskCard
                 task={task}
-                users={users}
+                users={usersForUi}
                 channels={channels}
                 jobPositions={jobPositions}
                 archiveMode

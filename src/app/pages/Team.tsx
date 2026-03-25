@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useStore } from '../store';
 import { UserDialog } from '../components/UserDialog';
 import { UserEditDialog } from '../components/UserEditDialog';
@@ -22,7 +22,7 @@ import {
   displayTaskTypeLabel,
   type BlockTaskVisibility,
 } from '../types';
-import { SERVICE_USER_ID } from '../constants/serviceAccount';
+import { withoutGhostServiceUser } from '../constants/serviceAccount';
 import {
   filterUsersByPermissions,
   filterTasksByPermissions,
@@ -74,6 +74,7 @@ export default function Team() {
 
   const visibleUsers = filterUsersByPermissions(users, currentUser, staffBlocks);
   const visibleTasks = filterTasksByPermissions(tasks, currentUser, users, staffBlocks);
+  const displayUsers = useMemo(() => withoutGhostServiceUser(visibleUsers), [visibleUsers]);
 
   const rootBlocks = [...staffBlocks]
     .filter((b) => !b.parentBlockId)
@@ -88,7 +89,7 @@ export default function Team() {
       .filter((b) => b.parentBlockId === parentId)
       .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
 
-  const pickableUsersForVisibility = users.filter((u) => u.id !== SERVICE_USER_ID);
+  const pickableUsersForVisibility = useMemo(() => withoutGhostServiceUser(users), [users]);
 
   const toggleBlockExtraUser = (blockId: string, userId: string, checked: boolean) => {
     const b = staffBlocks.find((x) => x.id === blockId);
@@ -120,7 +121,7 @@ export default function Team() {
 
   const handleEditUser = (user: User) => {
     if (!canEditServiceUser(currentUser, user, staffBlocks)) {
-      toast.error('Сервисный аккаунт может менять только учётка с полными правами');
+      toast.error('Эту учётную запись может менять только сотрудник с полными правами');
       return;
     }
     setEditingUser(user);
@@ -131,7 +132,7 @@ export default function Team() {
     jobPositions.find((p) => p.id === u.positionId)?.name ?? roleLabels[u.role];
 
   const renderBlock = (blockId: string, blockTitle: string) => {
-    const blockUsers = visibleUsers.filter((us) => us.blockId === blockId);
+    const blockUsers = displayUsers.filter((us) => us.blockId === blockId);
     return (
       <Card key={blockId}>
         <CardHeader>
@@ -237,7 +238,7 @@ export default function Team() {
 
             <div>
               <h2 className="text-xl font-bold text-gray-900 mb-4">Загруженность</h2>
-              <TeamStats users={visibleUsers} tasks={visibleTasks} jobPositions={jobPositions} />
+              <TeamStats users={displayUsers} tasks={visibleTasks} jobPositions={jobPositions} />
             </div>
           </div>
         </TabsContent>
@@ -252,7 +253,8 @@ export default function Team() {
                 <CardContent className="space-y-4">
                   <p className="text-sm text-gray-600">
                     Видимость задач: для задач с исполнителями из подблока кто видит их в списках (кроме своих
-                    назначенных и средних/полных прав). Сервисный аккаунт видит все задачи без ограничений.
+                    назначенных и средних/полных прав). Учётки со средними и полными правами по умолчанию видят
+                    все задачи.
                   </p>
                   <div className="flex gap-2 flex-wrap items-end">
                     <div className="flex-1 min-w-[160px] space-y-2">

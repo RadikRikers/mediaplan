@@ -10,7 +10,11 @@ import {
 import { ru } from 'date-fns/locale';
 import { useStore } from '../store';
 import { canManageMeeting } from '../utils/permissions';
-import { SERVICE_USER_ID } from '../constants/serviceAccount';
+import {
+  withoutGhostServiceUser,
+  SERVICE_USER_ID,
+  isServiceAccount,
+} from '../constants/serviceAccount';
 import type { Meeting } from '../types';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
@@ -110,10 +114,7 @@ export default function Meetings() {
   const [preparation, setPreparation] = useState('');
   const [participantIds, setParticipantIds] = useState<string[]>([]);
 
-  const teamUsers = useMemo(
-    () => users.filter((u) => u.id !== SERVICE_USER_ID),
-    [users],
-  );
+  const teamUsers = useMemo(() => withoutGhostServiceUser(users), [users]);
 
   const weekStart = useMemo(
     () => startOfWeek(weekAnchor, { weekStartsOn: 1 }),
@@ -171,7 +172,7 @@ export default function Meetings() {
     setTitle('');
     setLocation('');
     setPreparation('');
-    setParticipantIds(currentUser ? [currentUser.id] : []);
+    setParticipantIds(currentUser && !isServiceAccount(currentUser) ? [currentUser.id] : []);
     setFormOpen(true);
   }, [currentUser]);
 
@@ -184,7 +185,7 @@ export default function Meetings() {
     setEndTime(toTimeInput(new Date(m.endsAt)));
     setLocation(m.location);
     setPreparation(m.preparation ?? '');
-    setParticipantIds([...m.participantIds]);
+    setParticipantIds(m.participantIds.filter((id) => id !== SERVICE_USER_ID));
     setFormOpen(true);
     setDetailMeeting(null);
   };
@@ -209,6 +210,7 @@ export default function Meetings() {
       return;
     }
     const prep = preparation.trim();
+    const participantsClean = participantIds.filter((id) => id !== SERVICE_USER_ID);
     if (editingId) {
       updateMeeting(editingId, {
         title: t,
@@ -216,7 +218,7 @@ export default function Meetings() {
         endsAt: endsAt.toISOString(),
         location: location.trim(),
         preparation: prep || undefined,
-        participantIds,
+        participantIds: participantsClean,
       });
       toast.success('Встреча обновлена');
     } else {
@@ -226,7 +228,7 @@ export default function Meetings() {
         endsAt: endsAt.toISOString(),
         location: location.trim(),
         preparation: prep || undefined,
-        participantIds,
+        participantIds: participantsClean,
       });
       toast.success('Встреча добавлена');
     }
@@ -385,10 +387,12 @@ export default function Meetings() {
                 <div className="text-[10px] text-blue-800/90 mt-0.5">
                   {format(new Date(m.startsAt), 'HH:mm')} – {format(new Date(m.endsAt), 'HH:mm')}
                 </div>
-                {m.participantIds.length > 0 && (
+                {m.participantIds.some((pid) => pid !== SERVICE_USER_ID) && (
                   <div className="flex items-center gap-0.5 text-[10px] text-gray-600 mt-0.5">
                     <Users className="h-3 w-3 shrink-0" />
-                    <span className="truncate">{m.participantIds.length}</span>
+                    <span className="truncate">
+                      {m.participantIds.filter((pid) => pid !== SERVICE_USER_ID).length}
+                    </span>
                   </div>
                 )}
               </button>
@@ -437,13 +441,16 @@ export default function Meetings() {
                         Участники
                       </div>
                       <ul className="list-disc pl-5 space-y-0.5 text-gray-700">
-                        {detailMeeting.participantIds.length === 0 ? (
+                        {detailMeeting.participantIds.filter((pid) => pid !== SERVICE_USER_ID).length ===
+                        0 ? (
                           <li className="list-none pl-0 text-gray-500">Не выбраны</li>
                         ) : (
-                          detailMeeting.participantIds.map((pid) => {
-                            const u = users.find((x) => x.id === pid);
-                            return <li key={pid}>{u?.name ?? `id ${pid}`}</li>;
-                          })
+                          detailMeeting.participantIds
+                            .filter((pid) => pid !== SERVICE_USER_ID)
+                            .map((pid) => {
+                              const u = users.find((x) => x.id === pid);
+                              return <li key={pid}>{u?.name ?? `id ${pid}`}</li>;
+                            })
                         )}
                       </ul>
                     </div>
