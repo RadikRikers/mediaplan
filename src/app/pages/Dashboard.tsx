@@ -130,7 +130,7 @@ export default function Dashboard() {
             <Link to="/meetings" className="block">
               <Button variant="outline" className="w-full" size="lg">
                 <CalendarClock className="h-5 w-5 mr-2" />
-                Планёр встреч
+                Планер встреч
               </Button>
             </Link>
             <Link to="/team" className="block">

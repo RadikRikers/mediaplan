@@ -169,7 +169,7 @@ export default function Layout() {
                     })}
                   </nav>
                   <p className="mt-6 text-xs text-muted-foreground leading-relaxed">
-                    Планёр встреч — недельная сетка по времени.
+                    Планер встреч — недельная сетка по времени.
                   </p>
                 </SheetContent>
               </Sheet>

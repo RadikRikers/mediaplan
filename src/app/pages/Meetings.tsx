@@ -260,7 +260,7 @@ export default function Meetings() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
             <CalendarClock className="h-8 w-8 text-blue-600" />
-            Планёр встреч
+            Планер встреч
           </h1>
           <p className="text-gray-600 mt-1">
             Недельная сетка: выберите слот или добавьте встречу вручную. Участники видят все планёрные встречи.
