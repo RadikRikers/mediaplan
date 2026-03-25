@@ -70,6 +70,10 @@ export interface CommunicationChannel {
   id: string;
   name: string;
   createdAt: string;
+  /** системный канал (например, Telegram/VK) или пользовательский паблик */
+  kind?: 'system' | 'public';
+  /** владелец паблика (если kind === 'public') */
+  ownerUserId?: string;
 }
 
 export interface Task {

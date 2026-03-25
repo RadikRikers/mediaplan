@@ -16,6 +16,7 @@ import {
   Cloud,
   CloudOff,
   Loader2,
+  LayoutGrid,
 } from 'lucide-react';
 import { permissionLabels, displayTaskTypeLabel } from '../types';
 import { toast } from 'sonner';
@@ -33,6 +34,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/mediaplan': 'Медиаплан',
   '/meetings': 'Встречи',
   '/calendar': 'Календарь',
+  '/contentplan': 'Контент план',
   '/team': 'Команда',
   '/archive': 'Архив',
   '/account': 'Аккаунт',
@@ -84,6 +86,7 @@ export default function Layout() {
     { name: 'Медиаплан', href: '/mediaplan', icon: ClipboardList },
     { name: 'Встречи', href: '/meetings', icon: CalendarClock },
     { name: 'Календарь', href: '/calendar', icon: Calendar },
+    { name: 'Контент план', href: '/contentplan', icon: LayoutGrid },
   ];
 
   const navigationSecondary = [
@@ -204,25 +207,12 @@ export default function Layout() {
             </div>
           </div>
 
-          {/* Строка 2 (desktop): основные разделы */}
+          {/* Строка 2 (desktop): основные разделы + команда/архив/аккаунт */}
           <div className="hidden md:flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-slate-100 py-2.5">
-            {navigationPrimary.map((item) => {
+            {[...navigationPrimary, ...navigationSecondary].map((item) => {
               const Icon = item.icon;
               return (
                 <NavLink key={item.name} to={item.href} end={item.href === '/'} className={desktopNavLinkClass}>
-                  <Icon className="h-4 w-4 mr-2 shrink-0" />
-                  {item.name}
-                </NavLink>
-              );
-            })}
-          </div>
-
-          {/* Строка 3 (desktop): команда, архив, аккаунт */}
-          <div className="hidden md:flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-slate-100 py-2.5 pb-3">
-            {navigationSecondary.map((item) => {
-              const Icon = item.icon;
-              return (
-                <NavLink key={item.name} to={item.href} className={desktopNavLinkClass}>
                   <Icon className="h-4 w-4 mr-2 shrink-0" />
                   {item.name}
                 </NavLink>

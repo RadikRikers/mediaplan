@@ -12,6 +12,7 @@ const Team = lazy(() => import('./pages/Team'));
 const Account = lazy(() => import('./pages/Account'));
 const Archive = lazy(() => import('./pages/Archive'));
 const Meetings = lazy(() => import('./pages/Meetings'));
+const ContentPlan = lazy(() => import('./pages/ContentPlan'));
 
 function PageLoader() {
   return (
@@ -86,6 +87,14 @@ export const router = createHashRouter([
         element: (
           <Suspense fallback={<PageLoader />}>
             <Calendar />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'contentplan',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <ContentPlan />
           </Suspense>
         ),
       },

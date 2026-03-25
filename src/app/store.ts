@@ -167,6 +167,20 @@ function normalizeUserWire(raw: Record<string, unknown>): User {
   };
 }
 
+function normalizeChannelWire(raw: Record<string, unknown>): CommunicationChannel {
+  const kindRaw = raw.kind;
+  const kind = kindRaw === 'public' || kindRaw === 'system' ? kindRaw : 'system';
+  const ownerUserId = kind === 'public' && typeof raw.ownerUserId === 'string' ? raw.ownerUserId : undefined;
+
+  return {
+    id: String(raw.id ?? `${Date.now()}`),
+    name: typeof raw.name === 'string' ? raw.name : 'Канал',
+    createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : new Date().toISOString(),
+    kind,
+    ownerUserId,
+  };
+}
+
 function normalizeStaffBlockWire(raw: Record<string, unknown>): StaffBlock {
   const tv = raw.taskVisibility;
   const taskVisibility =
@@ -357,11 +371,11 @@ const initialUsers: User[] = [
 
 // Начальные каналы
 const initialChannels: CommunicationChannel[] = [
-  { id: '1', name: 'Telegram', createdAt: new Date().toISOString() },
-  { id: '2', name: 'VK', createdAt: new Date().toISOString() },
-  { id: '3', name: 'Instagram', createdAt: new Date().toISOString() },
-  { id: '4', name: 'YouTube', createdAt: new Date().toISOString() },
-  { id: '5', name: 'Facebook', createdAt: new Date().toISOString() },
+  { id: '1', name: 'Telegram', createdAt: new Date().toISOString(), kind: 'system' },
+  { id: '2', name: 'VK', createdAt: new Date().toISOString(), kind: 'system' },
+  { id: '3', name: 'Instagram', createdAt: new Date().toISOString(), kind: 'system' },
+  { id: '4', name: 'YouTube', createdAt: new Date().toISOString(), kind: 'system' },
+  { id: '5', name: 'Facebook', createdAt: new Date().toISOString(), kind: 'system' },
 ];
 
 // Начальные задачи
@@ -1044,6 +1058,9 @@ function loadFromStorage<T>(key: string, defaultValue: T): T {
         );
         return jp as T;
       }
+      if (key === STORAGE_KEYS.CHANNELS && Array.isArray(parsed)) {
+        return parsed.map((row) => normalizeChannelWire(row as Record<string, unknown>)) as T;
+      }
       return parsed;
     }
     return defaultValue;
@@ -1143,7 +1160,9 @@ function buildStatePayloadFromRemote(data: RemoteStatePayload): RemoteStatePaylo
   if (tasksNext.length === 0) tasksNext = [...initialTasks];
 
   const channelsNext =
-    Array.isArray(data.channels) && data.channels.length > 0 ? data.channels : initialChannels;
+    Array.isArray(data.channels) && data.channels.length > 0
+      ? data.channels.map((c) => normalizeChannelWire(c as unknown as Record<string, unknown>))
+      : initialChannels;
 
   const meetingsNext = Array.isArray(data.meetings)
     ? data.meetings.map((m) => normalizeMeetingWire(m as unknown as Record<string, unknown>))
@@ -1623,11 +1642,11 @@ export function useStore() {
   };
 
   const addChannel = (channel: Omit<CommunicationChannel, 'id' | 'createdAt'>) => {
-    const newChannel: CommunicationChannel = {
+    const newChannel: CommunicationChannel = normalizeChannelWire({
       ...channel,
       id: Date.now().toString(),
       createdAt: new Date().toISOString(),
-    };
+    } as unknown as Record<string, unknown>);
     setChannels((prev) => [...prev, newChannel]);
     return newChannel;
   };

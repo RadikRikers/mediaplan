@@ -6,11 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button';
 import { Link } from 'react-router';
 import { BarChart3, Calendar, CalendarClock, Users, CheckCircle2, AlertCircle, Info } from 'lucide-react';
-import { isBefore } from 'date-fns';
+import { addDays, format, isBefore, isSameDay, startOfWeek } from 'date-fns';
+import { ru } from 'date-fns/locale';
 import { filterUsersByPermissions, filterTasksByPermissions, hasBroadAccess } from '../utils/permissions';
+import { Badge } from '../components/ui/badge';
 
 export default function Dashboard() {
-  const { users, tasks, currentUser, staffBlocks, jobPositions } = useStore();
+  const { users, tasks, channels, currentUser, staffBlocks, jobPositions } = useStore();
 
   // Фильтруем пользователей и задачи по правам доступа
   const visibleUsers = filterUsersByPermissions(users, currentUser, staffBlocks);
@@ -23,6 +25,14 @@ export default function Dashboard() {
   const completedTasks = visibleTasks.filter(t => t.completed);
   const overdueTasks = activeTasks.filter(t => t.deadline && isBefore(new Date(t.deadline), new Date()));
   const tasksWithKPI = visibleTasks.filter(t => t.kpiType !== 'none');
+
+  const publics = useMemo(() => {
+    if (!currentUser) return [];
+    return channels.filter((c) => c.kind === 'public' && c.ownerUserId === currentUser.id);
+  }, [channels, currentUser]);
+
+  const weekStart = useMemo(() => startOfWeek(new Date(), { weekStartsOn: 1 }), []);
+  const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -151,6 +161,72 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
+      </div>
+
+      {/* Заполняемость пабликов */}
+      <div className="mt-10">
+        <h2 className="text-xl font-bold text-gray-900 mb-4">Заполняемость пабликов</h2>
+        {publics.length === 0 ? (
+          <Card>
+            <CardContent className="py-6 text-sm text-gray-600">
+              Создайте паблик в разделе{' '}
+              <Link to="/contentplan" className="text-blue-600 hover:underline">
+                контент план
+              </Link>
+              , чтобы он появился здесь.
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {publics.map((pub) => {
+              const totalWeek = weekDays.reduce((acc, day) => {
+                const cnt = visibleTasks.filter(
+                  (t) =>
+                    !t.completed &&
+                    Boolean(t.deadline) &&
+                    isSameDay(new Date(t.deadline as string), day) &&
+                    t.channels.includes(pub.id),
+                ).length;
+                return acc + cnt;
+              }, 0);
+
+              return (
+                <Card key={pub.id}>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">{pub.name}</CardTitle>
+                    <p className="text-xs text-gray-500 mt-1">Постов за неделю: {totalWeek}</p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {weekDays.map((day) => {
+                        const cnt = visibleTasks.filter(
+                          (t) =>
+                            !t.completed &&
+                            Boolean(t.deadline) &&
+                            isSameDay(new Date(t.deadline as string), day) &&
+                            t.channels.includes(pub.id),
+                        ).length;
+                        return (
+                          <div
+                            key={day.toISOString()}
+                            className="flex items-center justify-between text-xs"
+                          >
+                            <span className="text-gray-600">
+                              {format(day, 'EEE dd.MM', { locale: ru })}
+                            </span>
+                            <Badge variant={cnt > 3 ? 'destructive' : 'outline'}>
+                              {cnt}/3
+                            </Badge>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
