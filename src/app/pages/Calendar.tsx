@@ -12,14 +12,24 @@ import { Task } from '../types';
 import { filterTasksByPermissions } from '../utils/permissions';
 
 export default function Calendar() {
-  const { users, tasks, channels, currentUser, addTask, updateTask, deleteTask, getTasksForDate } = useStore();
+  const {
+    users,
+    channels,
+    currentUser,
+    staffBlocks,
+    jobPositions,
+    addTask,
+    updateTask,
+    deleteTask,
+    getCalendarTasksForDate,
+  } = useStore();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>(undefined);
 
   // Фильтруем задачи по правам доступа
-  const allTasksForDate = getTasksForDate(selectedDate);
-  const tasksForDate = filterTasksByPermissions(allTasksForDate, currentUser);
+  const allTasksForDate = getCalendarTasksForDate(selectedDate);
+  const tasksForDate = filterTasksByPermissions(allTasksForDate, currentUser, users, staffBlocks);
 
   const handleSaveTask = (taskData: Omit<Task, 'id' | 'createdAt'>) => {
     if (editingTask) {
@@ -59,7 +69,7 @@ export default function Calendar() {
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Календарь</h1>
-          <p className="text-gray-600 mt-2">Просмотр задач по датам</p>
+          <p className="text-gray-600 mt-2">Задачи на выбранный день (выполненные тоже; без даты в сетке не показываются)</p>
         </div>
         <Button onClick={handleOpenDialog}>
           <Plus className="h-4 w-4 mr-2" />
@@ -110,6 +120,7 @@ export default function Calendar() {
                     task={task}
                     users={users}
                     channels={channels}
+                    jobPositions={jobPositions}
                     onToggleComplete={handleToggleComplete}
                     onEdit={handleEditTask}
                     onDelete={handleDeleteTask}
@@ -130,6 +141,7 @@ export default function Calendar() {
         onSave={handleSaveTask}
         users={users}
         channels={channels}
+        jobPositions={jobPositions}
         task={editingTask}
       />
     </div>

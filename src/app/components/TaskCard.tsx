@@ -1,4 +1,12 @@
-import { Task, User, CommunicationChannel, roleLabels, categoryLabels, recurrenceLabels } from '../types';
+import {
+  Task,
+  User,
+  CommunicationChannel,
+  JobPosition,
+  categoryLabels,
+  recurrenceLabels,
+  displayTaskTypeLabel,
+} from '../types';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -12,6 +20,7 @@ interface TaskCardProps {
   task: Task;
   users: User[];
   channels: CommunicationChannel[];
+  jobPositions?: JobPosition[];
   onToggleComplete: (taskId: string, completed: boolean) => void;
   onEdit: (task: Task) => void;
   onDelete: (taskId: string) => void;
@@ -19,7 +28,16 @@ interface TaskCardProps {
   archiveMode?: boolean;
 }
 
-export function TaskCard({ task, users, channels, onToggleComplete, onEdit, onDelete, archiveMode }: TaskCardProps) {
+export function TaskCard({
+  task,
+  users,
+  channels,
+  jobPositions = [],
+  onToggleComplete,
+  onEdit,
+  onDelete,
+  archiveMode,
+}: TaskCardProps) {
   const hasDeadline = Boolean(task.deadline);
   const isOverdue = !task.completed && hasDeadline && isBefore(new Date(task.deadline as string), new Date());
   const assignedUsers = users.filter(u => task.assignees.includes(u.id));
@@ -165,6 +183,9 @@ export function TaskCard({ task, users, channels, onToggleComplete, onEdit, onDe
               {assignedUsers.map(user => (
                 <Badge key={user.id} variant="secondary" className="text-xs">
                   {user.name}
+                  <span className="font-normal text-muted-foreground ml-1">
+                    ({displayTaskTypeLabel(user, jobPositions)})
+                  </span>
                 </Badge>
               ))}
             </div>

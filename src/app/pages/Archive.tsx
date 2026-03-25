@@ -7,11 +7,14 @@ import { isServiceAccount } from '../constants/serviceAccount';
 import { Archive as ArchiveIcon } from 'lucide-react';
 
 export default function Archive() {
-  const { users, tasks, channels, currentUser, deleteTask, updateTask } = useStore();
+  const { users, tasks, channels, currentUser, staffBlocks, jobPositions, deleteTask, updateTask } =
+    useStore();
 
   const archivedTasks = filterTasksByPermissions(
     tasks.filter((t) => Boolean(t.completed)),
     currentUser,
+    users,
+    staffBlocks,
   ).sort((a, b) => {
     if (!a.deadline && !b.deadline) return a.title.localeCompare(b.title, 'ru');
     if (!a.deadline) return 1;
@@ -65,6 +68,7 @@ export default function Archive() {
                 task={task}
                 users={users}
                 channels={channels}
+                jobPositions={jobPositions}
                 archiveMode
                 onToggleComplete={() => {}}
                 onEdit={() => {}}

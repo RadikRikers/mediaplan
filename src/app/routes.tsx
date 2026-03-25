@@ -2,6 +2,7 @@ import { Suspense, lazy } from 'react';
 import { createHashRouter, Navigate } from 'react-router';
 import { useStore } from './store';
 import Layout from './components/Layout';
+import { Skeleton } from './components/ui/skeleton';
 
 const Login = lazy(() => import('./pages/Login'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -13,7 +14,16 @@ const Archive = lazy(() => import('./pages/Archive'));
 const Meetings = lazy(() => import('./pages/Meetings'));
 
 function PageLoader() {
-  return <div className="p-6 text-sm text-gray-500">Загрузка...</div>;
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6" aria-busy="true" aria-label="Загрузка страницы">
+      <Skeleton className="h-9 w-56 rounded-md" />
+      <Skeleton className="h-4 w-full max-w-xl rounded-md" />
+      <div className="grid gap-4 md:grid-cols-2">
+        <Skeleton className="h-40 rounded-lg" />
+        <Skeleton className="h-40 rounded-lg" />
+      </div>
+    </div>
+  );
 }
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {

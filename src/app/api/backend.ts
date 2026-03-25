@@ -1,4 +1,4 @@
-import type { User, Task, CommunicationChannel, Meeting } from '../types';
+import type { User, Task, CommunicationChannel, Meeting, StaffBlock, JobPosition } from '../types';
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabaseClient';
 
 export type RemoteStatePayload = {
@@ -6,6 +6,8 @@ export type RemoteStatePayload = {
   tasks: Task[];
   channels: CommunicationChannel[];
   meetings: Meeting[];
+  staffBlocks: StaffBlock[];
+  jobPositions: JobPosition[];
   notificationsShown: string[];
   pushNotificationsEnabled: boolean;
 };
@@ -24,6 +26,8 @@ function emptyPayload(): RemoteStatePayload {
     tasks: [],
     channels: [],
     meetings: [],
+    staffBlocks: [],
+    jobPositions: [],
     notificationsShown: [],
     pushNotificationsEnabled: false,
   };
@@ -37,6 +41,8 @@ function coercePayload(raw: unknown): RemoteStatePayload {
     tasks: Array.isArray(o.tasks) ? (o.tasks as Task[]) : [],
     channels: Array.isArray(o.channels) ? (o.channels as CommunicationChannel[]) : [],
     meetings: Array.isArray(o.meetings) ? (o.meetings as Meeting[]) : [],
+    staffBlocks: Array.isArray(o.staffBlocks) ? (o.staffBlocks as StaffBlock[]) : [],
+    jobPositions: Array.isArray(o.jobPositions) ? (o.jobPositions as JobPosition[]) : [],
     notificationsShown: Array.isArray(o.notificationsShown)
       ? (o.notificationsShown as string[])
       : [],
@@ -71,6 +77,8 @@ export function snapshotState(p: RemoteStatePayload): string {
     tasks: p.tasks,
     channels: p.channels,
     meetings: [...p.meetings].sort((a, b) => a.id.localeCompare(b.id)),
+    staffBlocks: [...p.staffBlocks].sort((a, b) => a.id.localeCompare(b.id)),
+    jobPositions: [...p.jobPositions].sort((a, b) => a.id.localeCompare(b.id)),
     notificationsShown: [...p.notificationsShown].sort(),
     pushNotificationsEnabled: p.pushNotificationsEnabled,
   });

@@ -1,6 +1,27 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { User, Task, CommunicationChannel, Meeting } from './types';
-import { addDays, addWeeks, addMonths, addQuarters, addYears, isBefore, isAfter, startOfDay, differenceInHours } from 'date-fns';
+import {
+  User,
+  Task,
+  CommunicationChannel,
+  Meeting,
+  StaffBlock,
+  JobPosition,
+  PermissionLevel,
+  UserRole,
+  roleBlocks,
+} from './types';
+import {
+  addDays,
+  addWeeks,
+  addMonths,
+  addQuarters,
+  addYears,
+  isBefore,
+  isAfter,
+  isSameDay,
+  startOfDay,
+  differenceInHours,
+} from 'date-fns';
 import { toast } from 'sonner';
 import { isServiceAccount, SERVICE_USER_ID } from './constants/serviceAccount';
 import {
@@ -11,12 +32,17 @@ import {
   type RemoteStatePayload,
 } from './api/backend';
 
+/** Состояние синхронизации с Supabase (для индикатора в шапке) */
+export type CloudSyncStatus = 'off' | 'loading' | 'ready' | 'error';
+
 // Локальное хранилище данных
 const STORAGE_KEYS = {
   USERS: 'mediaplanning_users',
   TASKS: 'mediaplanning_tasks',
   CHANNELS: 'mediaplanning_channels',
   MEETINGS: 'mediaplanning_meetings',
+  STAFF_BLOCKS: 'mediaplanning_staff_blocks',
+  JOB_POSITIONS: 'mediaplanning_job_positions',
   NOTIFICATIONS_SHOWN: 'mediaplanning_notifications_shown',
   CURRENT_USER: 'mediaplanning_current_user',
   PUSH_NOTIFICATIONS_ENABLED: 'mediaplanning_push_notifications_enabled',
@@ -24,6 +50,216 @@ const STORAGE_KEYS = {
 
 const SESSION_USER_KEY = 'mediaplanning_session_user';
 const DEMO_TASK_IDS = new Set(Array.from({ length: 42 }, (_, i) => String(i + 1)));
+
+const orgSeedAt = new Date().toISOString();
+
+const MEDIA_ROOT_ID = 'blk-media';
+/** Корневой блок общего руководства — видимость всех задач и команды */
+const LEADERSHIP_BLOCK_ID = 'blk-leadership';
+const DEFAULT_SUB_BLOCKS = ['blk-smm', 'blk-copy', 'blk-content'] as const;
+
+/** Общий родитель + подблоки SMM / копирайт / контент (права по подблокам как раньше) */
+const initialStaffBlocks: StaffBlock[] = [
+  {
+    id: LEADERSHIP_BLOCK_ID,
+    name: 'Общее руководство',
+    createdAt: orgSeedAt,
+    parentBlockId: null,
+    taskVisibility: 'all',
+    taskVisibilityExtraUserIds: [],
+    leadershipScope: true,
+  },
+  {
+    id: MEDIA_ROOT_ID,
+    name: 'Медиаблок (объединённый)',
+    createdAt: orgSeedAt,
+    parentBlockId: null,
+    taskVisibility: 'block_only',
+    taskVisibilityExtraUserIds: [],
+  },
+  {
+    id: 'blk-smm',
+    name: 'Блок SMM',
+    createdAt: orgSeedAt,
+    parentBlockId: MEDIA_ROOT_ID,
+    taskVisibility: 'block_only',
+    taskVisibilityExtraUserIds: [],
+  },
+  {
+    id: 'blk-copy',
+    name: 'Блок копирайтинга',
+    createdAt: orgSeedAt,
+    parentBlockId: MEDIA_ROOT_ID,
+    taskVisibility: 'block_only',
+    taskVisibilityExtraUserIds: [],
+  },
+  {
+    id: 'blk-content',
+    name: 'Блок контента',
+    createdAt: orgSeedAt,
+    parentBlockId: MEDIA_ROOT_ID,
+    taskVisibility: 'block_only',
+    taskVisibilityExtraUserIds: [],
+  },
+];
+
+const initialJobPositions: JobPosition[] = [
+  {
+    id: 'pos-leadership',
+    name: 'Руководство',
+    blockId: LEADERSHIP_BLOCK_ID,
+    defaultRole: 'editor',
+    createdAt: orgSeedAt,
+  },
+  { id: 'pos-senior-smm', name: 'Старший SMM-специалист', blockId: 'blk-smm', defaultRole: 'senior-smm-specialist', createdAt: orgSeedAt },
+  { id: 'pos-smm', name: 'SMM-специалист', blockId: 'blk-smm', defaultRole: 'smm-specialist', createdAt: orgSeedAt },
+  { id: 'pos-editor', name: 'Редактор', blockId: 'blk-copy', defaultRole: 'editor', createdAt: orgSeedAt },
+  { id: 'pos-copy', name: 'Копирайтер', blockId: 'blk-copy', defaultRole: 'copywriter', createdAt: orgSeedAt },
+  { id: 'pos-designer', name: 'Дизайнер', blockId: 'blk-content', defaultRole: 'designer', createdAt: orgSeedAt },
+  { id: 'pos-video', name: 'Видеограф', blockId: 'blk-content', defaultRole: 'videographer', createdAt: orgSeedAt },
+];
+
+function permissionLevelFromLegacyUser(id: string, role: UserRole): PermissionLevel {
+  if (id === SERVICE_USER_ID) return 'full';
+  if (role === 'editor' || role === 'senior-smm-specialist') return 'medium';
+  return 'basic';
+}
+
+function legacyBlockIdForRole(role: UserRole): string {
+  if (roleBlocks.smm.includes(role)) return 'blk-smm';
+  if (roleBlocks.copywriting.includes(role)) return 'blk-copy';
+  if (roleBlocks.content.includes(role)) return 'blk-content';
+  return 'blk-smm';
+}
+
+function legacyPositionIdForRole(role: UserRole): string {
+  const m: Record<UserRole, string> = {
+    'senior-smm-specialist': 'pos-senior-smm',
+    'smm-specialist': 'pos-smm',
+    'editor': 'pos-editor',
+    'copywriter': 'pos-copy',
+    'designer': 'pos-designer',
+    'videographer': 'pos-video',
+  };
+  return m[role];
+}
+
+function normalizeUserWire(raw: Record<string, unknown>): User {
+  const id = String(raw.id ?? '');
+  const role = (raw.role as UserRole) || 'smm-specialist';
+  const permissionLevel =
+    (raw.permissionLevel as PermissionLevel) || permissionLevelFromLegacyUser(id, role);
+  const blockId =
+    typeof raw.blockId === 'string' && raw.blockId ? raw.blockId : legacyBlockIdForRole(role);
+  const positionId =
+    typeof raw.positionId === 'string' && raw.positionId ? raw.positionId : legacyPositionIdForRole(role);
+  const ttl = typeof raw.taskTypeLabel === 'string' ? raw.taskTypeLabel.trim() : '';
+  return {
+    id,
+    name: typeof raw.name === 'string' ? raw.name : '',
+    role,
+    password: typeof raw.password === 'string' ? raw.password : '',
+    createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : new Date().toISOString(),
+    permissionLevel: id === SERVICE_USER_ID ? 'full' : permissionLevel,
+    blockId,
+    positionId,
+    ...(ttl ? { taskTypeLabel: ttl } : {}),
+  };
+}
+
+function normalizeStaffBlockWire(raw: Record<string, unknown>): StaffBlock {
+  const tv = raw.taskVisibility;
+  const taskVisibility =
+    tv === 'all' || tv === 'block_only' || tv === 'block_and_extra' ? tv : 'block_only';
+  const parentRaw = raw.parentBlockId;
+  const parentBlockId =
+    typeof parentRaw === 'string' && parentRaw.length > 0 ? parentRaw : null;
+  const extra = Array.isArray(raw.taskVisibilityExtraUserIds)
+    ? (raw.taskVisibilityExtraUserIds as unknown[]).filter((x): x is string => typeof x === 'string')
+    : [];
+  const leadershipScope = raw.leadershipScope === true;
+  return {
+    id: String(raw.id ?? `${Date.now()}`),
+    name: typeof raw.name === 'string' ? raw.name : 'Блок',
+    createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : new Date().toISOString(),
+    parentBlockId,
+    taskVisibility,
+    taskVisibilityExtraUserIds: extra,
+    ...(leadershipScope ? { leadershipScope: true } : {}),
+  };
+}
+
+function ensureStaffBlockHierarchy(blocks: StaffBlock[]): StaffBlock[] {
+  const byId = new Set(blocks.map((b) => b.id));
+  let next = [...blocks];
+  const seedAt = next[0]?.createdAt ?? new Date().toISOString();
+  if (!byId.has(LEADERSHIP_BLOCK_ID)) {
+    next = [
+      {
+        id: LEADERSHIP_BLOCK_ID,
+        name: 'Общее руководство',
+        createdAt: seedAt,
+        parentBlockId: null,
+        taskVisibility: 'all',
+        taskVisibilityExtraUserIds: [],
+        leadershipScope: true,
+      },
+      ...next,
+    ];
+  }
+  if (!byId.has(MEDIA_ROOT_ID) && DEFAULT_SUB_BLOCKS.some((id) => byId.has(id))) {
+    next = [
+      {
+        id: MEDIA_ROOT_ID,
+        name: 'Медиаблок (объединённый)',
+        createdAt: seedAt,
+        parentBlockId: null,
+        taskVisibility: 'block_only',
+        taskVisibilityExtraUserIds: [],
+      },
+      ...next,
+    ];
+  }
+  return next.map((b) => {
+    if (DEFAULT_SUB_BLOCKS.includes(b.id as (typeof DEFAULT_SUB_BLOCKS)[number]) && !b.parentBlockId) {
+      return { ...b, parentBlockId: MEDIA_ROOT_ID };
+    }
+    return b;
+  });
+}
+
+function normalizeJobPositionWire(raw: Record<string, unknown>): JobPosition {
+  const ttl = typeof raw.taskTypeLabel === 'string' ? raw.taskTypeLabel.trim() : '';
+  return {
+    id: String(raw.id ?? `${Date.now()}`),
+    name: typeof raw.name === 'string' ? raw.name : 'Должность',
+    blockId: typeof raw.blockId === 'string' ? raw.blockId : 'blk-smm',
+    defaultRole: (raw.defaultRole as UserRole) || 'smm-specialist',
+    createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : new Date().toISOString(),
+    ...(ttl ? { taskTypeLabel: ttl } : {}),
+  };
+}
+
+/** Если в данных есть блок руководства, но нет должности — добавляем типовую */
+function ensureLeadershipJobPosition(
+  positions: JobPosition[],
+  blocks: StaffBlock[],
+  seedAt: string,
+): JobPosition[] {
+  const hasLeadershipBlock = blocks.some((b) => b.id === LEADERSHIP_BLOCK_ID);
+  if (!hasLeadershipBlock) return positions;
+  if (positions.some((p) => p.blockId === LEADERSHIP_BLOCK_ID)) return positions;
+  return [
+    ...positions,
+    normalizeJobPositionWire({
+      id: 'pos-leadership',
+      name: 'Руководство',
+      blockId: LEADERSHIP_BLOCK_ID,
+      defaultRole: 'editor',
+      createdAt: seedAt,
+    }),
+  ];
+}
 
 // Начальные пользователи (id 1–8 — команда, 9 — сервисный аккаунт для сохранения в localStorage)
 const initialUsers: User[] = [
@@ -33,6 +269,9 @@ const initialUsers: User[] = [
     role: 'senior-smm-specialist',
     password: 'demo1',
     createdAt: new Date().toISOString(),
+    permissionLevel: 'medium',
+    blockId: 'blk-smm',
+    positionId: 'pos-senior-smm',
   },
   {
     id: '2',
@@ -40,6 +279,9 @@ const initialUsers: User[] = [
     role: 'smm-specialist',
     password: 'demo2',
     createdAt: new Date().toISOString(),
+    permissionLevel: 'basic',
+    blockId: 'blk-smm',
+    positionId: 'pos-smm',
   },
   {
     id: '3',
@@ -47,6 +289,9 @@ const initialUsers: User[] = [
     role: 'editor',
     password: 'demo3',
     createdAt: new Date().toISOString(),
+    permissionLevel: 'medium',
+    blockId: 'blk-copy',
+    positionId: 'pos-editor',
   },
   {
     id: '4',
@@ -54,6 +299,9 @@ const initialUsers: User[] = [
     role: 'copywriter',
     password: 'demo4',
     createdAt: new Date().toISOString(),
+    permissionLevel: 'basic',
+    blockId: 'blk-copy',
+    positionId: 'pos-copy',
   },
   {
     id: '5',
@@ -61,6 +309,9 @@ const initialUsers: User[] = [
     role: 'designer',
     password: 'demo5',
     createdAt: new Date().toISOString(),
+    permissionLevel: 'basic',
+    blockId: 'blk-content',
+    positionId: 'pos-designer',
   },
   {
     id: '6',
@@ -68,6 +319,9 @@ const initialUsers: User[] = [
     role: 'videographer',
     password: 'demo6',
     createdAt: new Date().toISOString(),
+    permissionLevel: 'basic',
+    blockId: 'blk-content',
+    positionId: 'pos-video',
   },
   {
     id: '7',
@@ -75,6 +329,9 @@ const initialUsers: User[] = [
     role: 'smm-specialist',
     password: 'demo7',
     createdAt: new Date().toISOString(),
+    permissionLevel: 'basic',
+    blockId: 'blk-smm',
+    positionId: 'pos-smm',
   },
   {
     id: '8',
@@ -82,6 +339,9 @@ const initialUsers: User[] = [
     role: 'copywriter',
     password: 'demo8',
     createdAt: new Date().toISOString(),
+    permissionLevel: 'basic',
+    blockId: 'blk-copy',
+    positionId: 'pos-copy',
   },
   {
     id: SERVICE_USER_ID,
@@ -89,6 +349,9 @@ const initialUsers: User[] = [
     role: 'editor',
     password: 'service2024',
     createdAt: new Date().toISOString(),
+    permissionLevel: 'full',
+    blockId: 'blk-copy',
+    positionId: 'pos-editor',
   },
 ];
 
@@ -737,7 +1000,7 @@ function loadFromStorage<T>(key: string, defaultValue: T): T {
     if (stored) {
       const parsed = JSON.parse(stored);
       if (key === STORAGE_KEYS.USERS && Array.isArray(parsed)) {
-        return parsed as T;
+        return parsed.map((row) => normalizeUserWire(row as Record<string, unknown>)) as T;
       }
       // Ensure backward compatibility for tasks
       if (key === STORAGE_KEYS.TASKS && Array.isArray(parsed)) {
@@ -752,6 +1015,34 @@ function loadFromStorage<T>(key: string, defaultValue: T): T {
       }
       if (key === STORAGE_KEYS.MEETINGS && Array.isArray(parsed)) {
         return parsed.map((row) => normalizeMeetingWire(row as Record<string, unknown>)) as T;
+      }
+      if (key === STORAGE_KEYS.STAFF_BLOCKS && Array.isArray(parsed)) {
+        return ensureStaffBlockHierarchy(
+          parsed.map((row) => normalizeStaffBlockWire(row as Record<string, unknown>)),
+        ) as T;
+      }
+      if (key === STORAGE_KEYS.JOB_POSITIONS && Array.isArray(parsed)) {
+        let blocksForEnsure: StaffBlock[] = initialStaffBlocks;
+        try {
+          const sbRaw = localStorage.getItem(STORAGE_KEYS.STAFF_BLOCKS);
+          if (sbRaw) {
+            const sbParsed = JSON.parse(sbRaw);
+            if (Array.isArray(sbParsed)) {
+              blocksForEnsure = ensureStaffBlockHierarchy(
+                sbParsed.map((row) => normalizeStaffBlockWire(row as Record<string, unknown>)),
+              );
+            }
+          }
+        } catch {
+          blocksForEnsure = ensureStaffBlockHierarchy(blocksForEnsure);
+        }
+        let jp = parsed.map((row) => normalizeJobPositionWire(row as Record<string, unknown>));
+        jp = ensureLeadershipJobPosition(
+          jp,
+          blocksForEnsure,
+          blocksForEnsure[0]?.createdAt ?? new Date().toISOString(),
+        );
+        return jp as T;
       }
       return parsed;
     }
@@ -771,7 +1062,7 @@ function loadSessionUser(): User | null {
     const ls = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
     if (ls) {
       const u = JSON.parse(ls) as User;
-      if (u.id === SERVICE_USER_ID) return u;
+      if (u.id === SERVICE_USER_ID) return migrateServiceUserId(u);
       return migrateServiceUserId(u);
     }
   } catch {
@@ -782,10 +1073,11 @@ function loadSessionUser(): User | null {
 
 /** Старый сервисный аккаунт был id=7; теперь 7 — Говорик, сервис — id 9 */
 function migrateServiceUserId(u: User): User {
+  const raw = { ...u } as unknown as Record<string, unknown>;
   if (u.id === '7' && u.name?.includes('Сервис')) {
-    return { ...u, id: SERVICE_USER_ID };
+    raw.id = SERVICE_USER_ID;
   }
-  return u;
+  return normalizeUserWire(raw);
 }
 
 function normalizeTaskWire(raw: Record<string, unknown>): Task {
@@ -823,11 +1115,131 @@ function stripDemoTasks(tasks: Task[]): Task[] {
   return tasks.filter((task) => !DEMO_TASK_IDS.has(task.id));
 }
 
+/** Имя без учёта регистра (кириллица); пароль — посимвольно как задан */
+function credentialsMatch(user: User, nameInput: string, passwordInput: string): boolean {
+  const nameOk =
+    user.name.trim().localeCompare(nameInput.trim(), 'ru', { sensitivity: 'base' }) === 0;
+  return nameOk && user.password === passwordInput;
+}
+
+function buildStatePayloadFromRemote(data: RemoteStatePayload): RemoteStatePayload {
+  const u = data.users;
+  let usersNext: User[];
+  if (!Array.isArray(u)) {
+    usersNext = [...initialUsers];
+  } else if (u.length === 0) {
+    // пустой payload в Supabase — иначе вход невозможен, пока кто-то не засидит users вручную
+    usersNext = [...initialUsers];
+  } else {
+    usersNext = u.map((row) => normalizeUserWire(row as unknown as Record<string, unknown>));
+  }
+
+  const tasksRaw = Array.isArray(data.tasks) ? data.tasks : [];
+  const tasksNext = stripDemoTasks(
+    tasksRaw.map((t) => normalizeTaskWire(t as unknown as Record<string, unknown>)),
+  );
+
+  const channelsNext =
+    Array.isArray(data.channels) && data.channels.length > 0 ? data.channels : initialChannels;
+
+  const meetingsNext = Array.isArray(data.meetings)
+    ? data.meetings.map((m) => normalizeMeetingWire(m as unknown as Record<string, unknown>))
+    : [];
+
+  let staffBlocks = Array.isArray(data.staffBlocks)
+    ? data.staffBlocks.map((s) => normalizeStaffBlockWire(s as unknown as Record<string, unknown>))
+    : [];
+  if (staffBlocks.length === 0) staffBlocks = [...initialStaffBlocks];
+  staffBlocks = ensureStaffBlockHierarchy(staffBlocks);
+
+  let jobPositions = Array.isArray(data.jobPositions)
+    ? data.jobPositions.map((p) => normalizeJobPositionWire(p as unknown as Record<string, unknown>))
+    : [];
+  if (jobPositions.length === 0) jobPositions = [...initialJobPositions];
+  jobPositions = ensureLeadershipJobPosition(
+    jobPositions,
+    staffBlocks,
+    staffBlocks[0]?.createdAt ?? new Date().toISOString(),
+  );
+
+  const notificationsNext = Array.isArray(data.notificationsShown) ? data.notificationsShown : [];
+  const pushNext = typeof data.pushNotificationsEnabled === 'boolean' ? data.pushNotificationsEnabled : false;
+
+  return {
+    users: usersNext,
+    tasks: tasksNext,
+    channels: channelsNext,
+    meetings: meetingsNext,
+    staffBlocks,
+    jobPositions,
+    notificationsShown: notificationsNext,
+    pushNotificationsEnabled: pushNext,
+  };
+}
+
+function addRecurrenceStep(d: Date, recurrence: Task['recurrence']): Date {
+  switch (recurrence) {
+    case 'weekly':
+      return addWeeks(d, 1);
+    case 'biweekly':
+      return addWeeks(d, 2);
+    case 'monthly':
+      return addMonths(d, 1);
+    case 'quarterly':
+      return addQuarters(d, 1);
+    case 'yearly':
+      return addYears(d, 1);
+    default:
+      return d;
+  }
+}
+
+function subRecurrenceStep(d: Date, recurrence: Task['recurrence']): Date {
+  switch (recurrence) {
+    case 'weekly':
+      return addWeeks(d, -1);
+    case 'biweekly':
+      return addWeeks(d, -2);
+    case 'monthly':
+      return addMonths(d, -1);
+    case 'quarterly':
+      return addQuarters(d, -1);
+    case 'yearly':
+      return addYears(d, -1);
+    default:
+      return d;
+  }
+}
+
+function taskOccursOnCalendarDay(task: Task, targetDate: Date): boolean {
+  if (!task.deadline) return false;
+  const day = startOfDay(targetDate);
+  let cur = startOfDay(new Date(task.deadline));
+  if (task.recurrence === 'none') {
+    return isSameDay(cur, day);
+  }
+  let g = 0;
+  while (isAfter(cur, day) && g++ < 400) {
+    cur = startOfDay(subRecurrenceStep(cur, task.recurrence));
+  }
+  g = 0;
+  while (isBefore(cur, day) && g++ < 400) {
+    cur = startOfDay(addRecurrenceStep(cur, task.recurrence));
+  }
+  return isSameDay(cur, day);
+}
+
 export function useStore() {
   const [users, setUsers] = useState<User[]>(() => loadFromStorage(STORAGE_KEYS.USERS, initialUsers));
   const [tasks, setTasks] = useState<Task[]>(() => stripDemoTasks(loadFromStorage(STORAGE_KEYS.TASKS, [] as Task[])));
   const [channels, setChannels] = useState<CommunicationChannel[]>(() => loadFromStorage(STORAGE_KEYS.CHANNELS, initialChannels));
   const [meetings, setMeetings] = useState<Meeting[]>(() => loadFromStorage(STORAGE_KEYS.MEETINGS, [] as Meeting[]));
+  const [staffBlocks, setStaffBlocks] = useState<StaffBlock[]>(() =>
+    loadFromStorage(STORAGE_KEYS.STAFF_BLOCKS, initialStaffBlocks),
+  );
+  const [jobPositions, setJobPositions] = useState<JobPosition[]>(() =>
+    loadFromStorage(STORAGE_KEYS.JOB_POSITIONS, initialJobPositions),
+  );
   const [notificationsShown, setNotificationsShown] = useState<Set<string>>(() => {
     const stored = loadFromStorage<string[]>(STORAGE_KEYS.NOTIFICATIONS_SHOWN, []);
     return new Set(stored);
@@ -836,57 +1248,94 @@ export function useStore() {
   const [pushNotificationsEnabled, setPushNotificationsEnabled] = useState<boolean>(() =>
     loadFromStorage<boolean>(STORAGE_KEYS.PUSH_NOTIFICATIONS_ENABLED, false)
   );
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<CloudSyncStatus>('off');
 
   const lastWrittenRef = useRef<string | null>(null);
   const remoteSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cloudErrorResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Пока false — не отправляем PUT, чтобы не затереть БД старым localStorage до ответа GET */
   const remoteHydratedRef = useRef(!isRemoteSyncConfigured());
 
-  const pullFromServer = useCallback(async () => {
-    if (!isRemoteSyncConfigured()) return;
-    try {
-      const data = await fetchRemoteState();
-      const usersNext = Array.isArray(data.users) ? data.users : initialUsers;
-      const tasksNextRaw = Array.isArray(data.tasks)
-        ? data.tasks.map((t) => normalizeTaskWire(t as unknown as Record<string, unknown>))
-        : ([] as Task[]);
-      const tasksNext = stripDemoTasks(tasksNextRaw);
-      const channelsNext = Array.isArray(data.channels) ? data.channels : initialChannels;
-      const meetingsNext = Array.isArray(data.meetings)
-        ? data.meetings.map((m) => normalizeMeetingWire(m as unknown as Record<string, unknown>))
-        : [];
-      const notificationsNext = Array.isArray(data.notificationsShown) ? data.notificationsShown : [];
-      const pushNext = typeof data.pushNotificationsEnabled === 'boolean' ? data.pushNotificationsEnabled : false;
+  const usersRef = useRef(users);
+  usersRef.current = users;
 
-      const payload: RemoteStatePayload = {
-        users: usersNext,
-        tasks: tasksNext,
-        channels: channelsNext,
-        meetings: meetingsNext,
-        notificationsShown: notificationsNext,
-        pushNotificationsEnabled: pushNext,
-      };
+  const pullFromServer = useCallback(async (): Promise<boolean> => {
+    if (!isRemoteSyncConfigured()) return false;
+    setCloudSyncStatus('loading');
+    try {
+      const raw = await fetchRemoteState();
+      const payload = buildStatePayloadFromRemote(raw);
       lastWrittenRef.current = snapshotState(payload);
-      setUsers(usersNext);
-      setTasks(tasksNext);
-      setChannels(channelsNext);
-      setMeetings(meetingsNext);
-      setNotificationsShown(new Set(notificationsNext));
-      setPushNotificationsEnabled(pushNext);
+      setUsers(payload.users);
+      setTasks(payload.tasks);
+      setChannels(payload.channels);
+      setMeetings(payload.meetings);
+      setStaffBlocks(payload.staffBlocks);
+      setJobPositions(payload.jobPositions);
+      setNotificationsShown(new Set(payload.notificationsShown));
+      setPushNotificationsEnabled(payload.pushNotificationsEnabled);
+      setCloudSyncStatus('ready');
+      return true;
     } catch (e) {
       console.error(e);
+      setCloudSyncStatus('error');
       toast.error('Не удалось загрузить данные из Supabase. Показаны локальные данные.');
+      return false;
     } finally {
       remoteHydratedRef.current = true;
     }
   }, []);
 
+  /** Перед проверкой пароля подтягиваем пользователей с Supabase — иначе на новом устройстве остаётся устаревший локальный список */
+  const attemptLogin = useCallback(
+    async (name: string, password: string): Promise<User | null> => {
+      const trimmed = name.trim();
+      try {
+        if (isRemoteSyncConfigured()) {
+          setCloudSyncStatus('loading');
+          const raw = await fetchRemoteState();
+          const payload = buildStatePayloadFromRemote(raw);
+          lastWrittenRef.current = snapshotState(payload);
+          remoteHydratedRef.current = true;
+          setUsers(payload.users);
+          setTasks(payload.tasks);
+          setChannels(payload.channels);
+          setMeetings(payload.meetings);
+          setStaffBlocks(payload.staffBlocks);
+          setJobPositions(payload.jobPositions);
+          setNotificationsShown(new Set(payload.notificationsShown));
+          setPushNotificationsEnabled(payload.pushNotificationsEnabled);
+          setCloudSyncStatus('ready');
+          return payload.users.find((u) => credentialsMatch(u, trimmed, password)) ?? null;
+        }
+      } catch (e) {
+        console.error(e);
+        setCloudSyncStatus('error');
+        toast.error('Не удалось загрузить данные с сервера.');
+      }
+      return usersRef.current.find((u) => credentialsMatch(u, trimmed, password)) ?? null;
+    },
+    [],
+  );
+
   useEffect(() => {
-    if (!currentUser) return;
-    if (!isRemoteSyncConfigured()) return;
+    if (!currentUser) {
+      setCloudSyncStatus('off');
+      return;
+    }
+    if (!isRemoteSyncConfigured()) {
+      setCloudSyncStatus('off');
+      return;
+    }
     remoteHydratedRef.current = false;
     void pullFromServer();
   }, [currentUser?.id, pullFromServer]);
+
+  useEffect(() => {
+    return () => {
+      if (cloudErrorResetRef.current) clearTimeout(cloudErrorResetRef.current);
+    };
+  }, []);
 
   // Локальный кэш для любого залогиненного пользователя (офлайн и без API-ключа)
   useEffect(() => {
@@ -911,6 +1360,16 @@ export function useStore() {
 
   useEffect(() => {
     if (!currentUser) return;
+    localStorage.setItem(STORAGE_KEYS.STAFF_BLOCKS, JSON.stringify(staffBlocks));
+  }, [staffBlocks, currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    localStorage.setItem(STORAGE_KEYS.JOB_POSITIONS, JSON.stringify(jobPositions));
+  }, [jobPositions, currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) return;
     localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS_SHOWN, JSON.stringify([...notificationsShown]));
   }, [notificationsShown, currentUser]);
 
@@ -930,6 +1389,8 @@ export function useStore() {
       tasks,
       channels,
       meetings,
+      staffBlocks,
+      jobPositions,
       notificationsShown: [...notificationsShown],
       pushNotificationsEnabled,
     };
@@ -945,6 +1406,12 @@ export function useStore() {
         })
         .catch((err) => {
           console.error(err);
+          setCloudSyncStatus('error');
+          if (cloudErrorResetRef.current) clearTimeout(cloudErrorResetRef.current);
+          cloudErrorResetRef.current = setTimeout(() => {
+            cloudErrorResetRef.current = null;
+            setCloudSyncStatus('ready');
+          }, 6000);
           toast.error('Не удалось сохранить в Supabase');
         });
     }, 450);
@@ -955,7 +1422,7 @@ export function useStore() {
         remoteSaveTimerRef.current = null;
       }
     };
-  }, [users, tasks, channels, meetings, notificationsShown, pushNotificationsEnabled, currentUser]);
+  }, [users, tasks, channels, meetings, staffBlocks, jobPositions, notificationsShown, pushNotificationsEnabled, currentUser]);
 
   useEffect(() => {
     if (!currentUser) {
@@ -1047,19 +1514,25 @@ export function useStore() {
           const notificationKey = `${task.id}-${interval}h`;
           
           if (hoursUntilDeadline <= interval && hoursUntilDeadline > 0 && !notificationsShown.has(notificationKey)) {
-            setNotificationsShown(prev => new Set([...prev, notificationKey]));
+            setNotificationsShown((prev) => new Set([...prev, notificationKey]));
 
             const hoursText = interval === 1 ? 'час' : interval < 5 ? 'часа' : 'часов';
             const description = `До дедлайна осталось ${interval} ${hoursText}`;
             const title = `Напоминание: ${task.title}`;
-          showReminderNotification(title, description, notificationKey);
+            const canPush =
+              pushNotificationsEnabled &&
+              typeof Notification !== 'undefined' &&
+              Notification.permission === 'granted';
 
-            // Fallback, когда push отключен/запрещен — можно закрыть вручную (крестик).
-            toast.warning(title, {
-              description,
-              duration: 60_000,
-              closeButton: true,
-            });
+            if (canPush) {
+              showReminderNotification(title, description, notificationKey);
+            } else {
+              toast.warning(title, {
+                description,
+                duration: 60_000,
+                closeButton: true,
+              });
+            }
           }
         });
       });
@@ -1094,23 +1567,49 @@ export function useStore() {
   };
 
   const addUser = (user: Omit<User, 'id' | 'createdAt'>) => {
-    const newUser: User = {
+    const newUser = normalizeUserWire({
       ...user,
       id: Date.now().toString(),
       createdAt: new Date().toISOString(),
-    };
-    setUsers([...users, newUser]);
+    } as unknown as Record<string, unknown>);
+    setUsers((prev) => [...prev, newUser]);
     return newUser;
   };
 
   const updateUser = (userId: string, updates: Partial<User>) => {
-    setUsers(users.map(u => (u.id === userId ? { ...u, ...updates } : u)));
-    // Чтобы изменения (например, пароль) сразу отражались в текущей сессии.
-    setCurrentUser((prev) => (prev && prev.id === userId ? { ...prev, ...updates } : prev));
+    setUsers((prev) =>
+      prev.map((u) =>
+        u.id === userId ? normalizeUserWire({ ...u, ...updates } as unknown as Record<string, unknown>) : u,
+      ),
+    );
+    setCurrentUser((prev) => {
+      if (!prev || prev.id !== userId) return prev;
+      return normalizeUserWire({ ...prev, ...updates } as unknown as Record<string, unknown>);
+    });
   };
 
   const deleteUser = (userId: string) => {
-    setUsers(users.filter(u => u.id !== userId));
+    setUsers((prev) => prev.filter((u) => u.id !== userId));
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.assignees.includes(userId) ? { ...t, assignees: t.assignees.filter((id) => id !== userId) } : t,
+      ),
+    );
+    setMeetings((prev) =>
+      prev.map((m) =>
+        m.participantIds.includes(userId)
+          ? { ...m, participantIds: m.participantIds.filter((id) => id !== userId) }
+          : m,
+      ),
+    );
+    setStaffBlocks((prev) =>
+      prev.map((b) => {
+        const extra = b.taskVisibilityExtraUserIds ?? [];
+        if (!extra.includes(userId)) return b;
+        return { ...b, taskVisibilityExtraUserIds: extra.filter((id) => id !== userId) };
+      }),
+    );
+    setCurrentUser((prev) => (prev?.id === userId ? null : prev));
   };
 
   const addChannel = (channel: Omit<CommunicationChannel, 'id' | 'createdAt'>) => {
@@ -1119,16 +1618,23 @@ export function useStore() {
       id: Date.now().toString(),
       createdAt: new Date().toISOString(),
     };
-    setChannels([...channels, newChannel]);
+    setChannels((prev) => [...prev, newChannel]);
     return newChannel;
   };
 
   const updateChannel = (channelId: string, updates: Partial<CommunicationChannel>) => {
-    setChannels(channels.map(c => c.id === channelId ? { ...c, ...updates } : c));
+    setChannels((prev) => prev.map((c) => (c.id === channelId ? { ...c, ...updates } : c)));
   };
 
   const deleteChannel = (channelId: string) => {
-    setChannels(channels.filter(c => c.id !== channelId));
+    setChannels((prev) => prev.filter((c) => c.id !== channelId));
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.channels?.includes(channelId)
+          ? { ...t, channels: (t.channels ?? []).filter((id) => id !== channelId) }
+          : t,
+      ),
+    );
   };
 
   const addTask = (task: Omit<Task, 'id' | 'createdAt'>) => {
@@ -1137,16 +1643,16 @@ export function useStore() {
       id: Date.now().toString(),
       createdAt: new Date().toISOString(),
     };
-    setTasks([...tasks, newTask]);
+    setTasks((prev) => [...prev, newTask]);
     return newTask;
   };
 
   const updateTask = (taskId: string, updates: Partial<Task>) => {
-    setTasks(tasks.map(t => t.id === taskId ? { ...t, ...updates } : t));
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, ...updates } : t)));
   };
 
   const deleteTask = (taskId: string) => {
-    setTasks(tasks.filter(t => t.id !== taskId));
+    setTasks((prev) => prev.filter((t) => t.id !== taskId));
   };
 
   const addMeeting = (input: Omit<Meeting, 'id' | 'createdAt' | 'createdBy'>) => {
@@ -1180,6 +1686,65 @@ export function useStore() {
 
   const deleteMeeting = (meetingId: string) => {
     setMeetings((prev) => prev.filter((m) => m.id !== meetingId));
+  };
+
+  const addStaffBlock = (name: string, parentBlockId: string | null = null) => {
+    const row = normalizeStaffBlockWire({
+      id: `blk-${Date.now()}`,
+      name: name.trim(),
+      createdAt: new Date().toISOString(),
+      parentBlockId,
+      taskVisibility: 'block_only',
+      taskVisibilityExtraUserIds: [],
+    });
+    setStaffBlocks((prev) => [...prev, row]);
+    return row;
+  };
+
+  const updateStaffBlock = (blockId: string, updates: Partial<Omit<StaffBlock, 'id' | 'createdAt'>>) => {
+    setStaffBlocks((prev) =>
+      prev.map((b) => (b.id === blockId ? { ...b, ...updates } : b)),
+    );
+  };
+
+  const deleteStaffBlock = (blockId: string): boolean => {
+    if (staffBlocks.some((b) => b.parentBlockId === blockId)) {
+      toast.error('Сначала удалите или перенесите подблоки');
+      return false;
+    }
+    if (users.some((u) => u.blockId === blockId)) {
+      toast.error('Нельзя удалить блок: есть сотрудники');
+      return false;
+    }
+    if (jobPositions.some((p) => p.blockId === blockId)) {
+      toast.error('Сначала удалите должности в этом блоке');
+      return false;
+    }
+    setStaffBlocks((prev) => prev.filter((b) => b.id !== blockId));
+    return true;
+  };
+
+  const addJobPosition = (input: Omit<JobPosition, 'id' | 'createdAt'>) => {
+    const row: JobPosition = {
+      ...input,
+      id: `pos-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+    };
+    setJobPositions((prev) => [...prev, row]);
+    return row;
+  };
+
+  const updateJobPosition = (positionId: string, updates: Partial<Omit<JobPosition, 'id' | 'createdAt'>>) => {
+    setJobPositions((prev) => prev.map((p) => (p.id === positionId ? { ...p, ...updates } : p)));
+  };
+
+  const deleteJobPosition = (positionId: string): boolean => {
+    if (users.some((u) => u.positionId === positionId)) {
+      toast.error('Нельзя удалить должность: назначена сотрудникам');
+      return false;
+    }
+    setJobPositions((prev) => prev.filter((p) => p.id !== positionId));
+    return true;
   };
 
   const getTasksForDate = (date: Date) => {
@@ -1236,11 +1801,28 @@ export function useStore() {
     });
   };
 
+  /** Календарь: задачи с дедлайном/вхождением ровно на выбранный день, в том числе выполненные; удалённые из списка не попадают */
+  const getCalendarTasksForDate = (date: Date) => {
+    const filtered = tasks.filter((task) => taskOccursOnCalendarDay(task, date));
+    return filtered.sort((a, b) => {
+      if (a.completed !== b.completed) return a.completed ? 1 : -1;
+      if (!a.deadline && !b.deadline) return a.title.localeCompare(b.title, 'ru');
+      if (!a.deadline) return 1;
+      if (!b.deadline) return -1;
+      const ta = new Date(a.deadline).getTime();
+      const tb = new Date(b.deadline).getTime();
+      if (ta !== tb) return ta - tb;
+      return a.title.localeCompare(b.title, 'ru');
+    });
+  };
+
   return {
     users,
     tasks,
     channels,
     meetings,
+    staffBlocks,
+    jobPositions,
     addUser,
     updateUser,
     deleteUser,
@@ -1251,12 +1833,22 @@ export function useStore() {
     updateTask,
     deleteTask,
     getTasksForDate,
+    getCalendarTasksForDate,
+    addStaffBlock,
+    updateStaffBlock,
+    deleteStaffBlock,
+    addJobPosition,
+    updateJobPosition,
+    deleteJobPosition,
     addMeeting,
     updateMeeting,
     deleteMeeting,
+    attemptLogin,
     currentUser,
     setCurrentUser,
     requestPushNotificationsPermission,
     pushNotificationsEnabled,
+    cloudSyncStatus,
+    pullFromServer,
   };
 }

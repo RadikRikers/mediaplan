@@ -1,4 +1,4 @@
-import { User, Task, roleLabels, roleBlocks } from '../types';
+import { User, Task, JobPosition, roleBlocks, displayTaskTypeLabel } from '../types';
 import { Progress } from './ui/progress';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { isBefore } from 'date-fns';
@@ -6,9 +6,10 @@ import { isBefore } from 'date-fns';
 interface TeamStatsProps {
   users: User[];
   tasks: Task[];
+  jobPositions: JobPosition[];
 }
 
-export function TeamStats({ users, tasks }: TeamStatsProps) {
+export function TeamStats({ users, tasks, jobPositions }: TeamStatsProps) {
   const MAX_TASKS_PER_USER = 30;
 
   const getUserStats = (userId: string) => {
@@ -41,7 +42,7 @@ export function TeamStats({ users, tasks }: TeamStatsProps) {
                 <div className="flex justify-between items-center">
                   <div>
                     <p className="font-medium">{user.name}</p>
-                    <p className="text-sm text-gray-500">{roleLabels[user.role]}</p>
+                    <p className="text-sm text-gray-500">{displayTaskTypeLabel(user, jobPositions)}</p>
                   </div>
                   <div className="text-right text-sm">
                     <p className="font-medium">{stats.totalTasks} задач</p>

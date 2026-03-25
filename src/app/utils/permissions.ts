@@ -1,12 +1,54 @@
-import { User, Task, UserRole, roleBlocks, Meeting } from '../types';
+import {
+  User,
+  Task,
+  UserRole,
+  roleBlocks,
+  Meeting,
+  PermissionLevel,
+  StaffBlock,
+} from '../types';
+import { SERVICE_USER_ID, isServiceAccount } from '../constants/serviceAccount';
 
-// Проверяет, имеет ли пользователь полный доступ ко всем данным
-export function hasFullAccess(user: User | null): boolean {
+/** Полные права: сервис и учётки с уровнем full — структура организации, все данные */
+export function hasOrgFullAccess(user: User | null): boolean {
   if (!user) return false;
-  return user.role === 'editor' || user.role === 'senior-smm-specialist';
+  return user.permissionLevel === 'full';
 }
 
-// Получает блок пользователя (SMM, копирайтинг, контент)
+/** Средние и полные: видят всех сотрудников и все задачи (как бывшие редактор / старший SMM) */
+export function hasBroadAccess(user: User | null): boolean {
+  if (!user) return false;
+  return user.permissionLevel === 'full' || user.permissionLevel === 'medium';
+}
+
+/** Блок «общее руководство»: полная видимость задач и команды по оргструктуре */
+export function hasLeadershipScope(user: User | null, staffBlocks: StaffBlock[]): boolean {
+  if (!user?.blockId) return false;
+  const block = staffBlocks.find((b) => b.id === user.blockId);
+  return Boolean(block?.leadershipScope);
+}
+
+/** @deprecated используйте hasBroadAccess — то же поведение для задач/команды */
+export function hasFullAccess(user: User | null): boolean {
+  return hasBroadAccess(user);
+}
+
+export function canAssignPermissionLevel(actor: User | null, target: PermissionLevel): boolean {
+  if (!actor) return false;
+  if (actor.permissionLevel === 'full') return true;
+  if (actor.permissionLevel === 'medium') return target === 'basic' || target === 'medium';
+  return false;
+}
+
+/** Блок для ограничения «начальных» прав: из профиля или по старой роли */
+export function getUserBlockId(user: User): string | null {
+  if (user.blockId) return user.blockId;
+  if (roleBlocks.smm.includes(user.role)) return 'blk-smm';
+  if (roleBlocks.copywriting.includes(user.role)) return 'blk-copy';
+  if (roleBlocks.content.includes(user.role)) return 'blk-content';
+  return null;
+}
+
 export function getUserBlock(role: UserRole): 'smm' | 'copywriting' | 'content' | null {
   if (roleBlocks.smm.includes(role)) return 'smm';
   if (roleBlocks.copywriting.includes(role)) return 'copywriting';
@@ -14,46 +56,102 @@ export function getUserBlock(role: UserRole): 'smm' | 'copywriting' | 'content' 
   return null;
 }
 
-// Проверяет, может ли пользователь видеть задачу
-export function canViewTask(task: Task, currentUser: User | null): boolean {
+function isSameStaffSubblock(a: User, b: User): boolean {
+  return Boolean(a.blockId && a.blockId === b.blockId);
+}
+
+/**
+ * Видимость задач для «начальных» прав учитывает настройки блока исполнителей.
+ * Сервисный аккаунт видит все задачи; средние/полные — как раньше, все задачи.
+ */
+export function canViewTask(
+  task: Task,
+  currentUser: User | null,
+  users: User[],
+  staffBlocks: StaffBlock[],
+): boolean {
   if (!currentUser) return false;
-  
-  // Редактор и старший SMM видят все задачи
-  if (hasFullAccess(currentUser)) return true;
-  
-  // Пользователь видит только свои задачи
-  return task.assignees.includes(currentUser.id);
+
+  if (isServiceAccount(currentUser)) return true;
+  if (hasBroadAccess(currentUser)) return true;
+  if (hasLeadershipScope(currentUser, staffBlocks)) return true;
+  if (task.assignees.includes(currentUser.id)) return true;
+
+  for (const aid of task.assignees) {
+    const assignee = users.find((u) => u.id === aid);
+    if (!assignee) continue;
+    const block = staffBlocks.find((b) => b.id === assignee.blockId);
+    if (!block) continue;
+    switch (block.taskVisibility) {
+      case 'all':
+        return true;
+      case 'block_only':
+        if (isSameStaffSubblock(currentUser, assignee)) return true;
+        break;
+      case 'block_and_extra': {
+        const extra = block.taskVisibilityExtraUserIds ?? [];
+        if (extra.includes(currentUser.id)) return true;
+        if (isSameStaffSubblock(currentUser, assignee)) return true;
+        break;
+      }
+    }
+  }
+
+  return false;
 }
 
-// Фильтрует задачи по правам доступа
-export function filterTasksByPermissions(tasks: Task[], currentUser: User | null): Task[] {
+export function filterTasksByPermissions(
+  tasks: Task[],
+  currentUser: User | null,
+  users: User[],
+  staffBlocks: StaffBlock[],
+): Task[] {
   if (!currentUser) return [];
-  return tasks.filter(task => canViewTask(task, currentUser));
+  return tasks.filter((task) => canViewTask(task, currentUser, users, staffBlocks));
 }
 
-// Проверяет, может ли пользователь видеть другого пользователя (для дашборда)
-export function canViewUser(user: User, currentUser: User | null): boolean {
+export function canViewUser(
+  target: User,
+  currentUser: User | null,
+  staffBlocks: StaffBlock[],
+): boolean {
   if (!currentUser) return false;
-  
-  // Редактор и старший SMM видят всех
-  if (hasFullAccess(currentUser)) return true;
-  
-  // Пользователь видит только пользователей своего блока
-  const currentUserBlock = getUserBlock(currentUser.role);
-  const targetUserBlock = getUserBlock(user.role);
-  
-  return currentUserBlock === targetUserBlock;
+
+  if (hasBroadAccess(currentUser)) return true;
+  if (hasLeadershipScope(currentUser, staffBlocks)) return true;
+
+  const a = getUserBlockId(currentUser);
+  const b = getUserBlockId(target);
+  return a !== null && a === b;
 }
 
-// Фильтрует пользователей по правам доступа
-export function filterUsersByPermissions(users: User[], currentUser: User | null): User[] {
+export function filterUsersByPermissions(
+  users: User[],
+  currentUser: User | null,
+  staffBlocks: StaffBlock[],
+): User[] {
   if (!currentUser) return [];
-  return users.filter(user => canViewUser(user, currentUser));
+  return users.filter((user) => canViewUser(user, currentUser, staffBlocks));
 }
 
-/** Удалить или редактировать встречу может создатель либо пользователь с полным доступом */
-export function canManageMeeting(meeting: Meeting, currentUser: User | null): boolean {
+export function canManageMeeting(
+  meeting: Meeting,
+  currentUser: User | null,
+  staffBlocks: StaffBlock[],
+): boolean {
   if (!currentUser) return false;
   if (meeting.createdBy === currentUser.id) return true;
-  return hasFullAccess(currentUser);
+  if (hasBroadAccess(currentUser)) return true;
+  return hasLeadershipScope(currentUser, staffBlocks);
+}
+
+/** Редактирование сервисного аккаунта — только уровень «полные права»; остальных — средние/полные или руководство */
+export function canEditServiceUser(
+  actor: User | null,
+  target: User,
+  staffBlocks: StaffBlock[],
+): boolean {
+  if (!actor) return false;
+  if (target.id === SERVICE_USER_ID) return hasOrgFullAccess(actor);
+  return hasBroadAccess(actor) || hasLeadershipScope(actor, staffBlocks);
 }

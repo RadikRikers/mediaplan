@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -11,40 +11,95 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { User, UserRole, roleLabels } from '../types';
+import {
+  User,
+  StaffBlock,
+  JobPosition,
+  PermissionLevel,
+  permissionLabels,
+  roleLabels,
+} from '../types';
+import { canAssignPermissionLevel } from '../utils/permissions';
+import { toast } from 'sonner';
 
 interface UserEditDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (userId: string, updates: Partial<User>) => void;
   user?: User;
+  staffBlocks: StaffBlock[];
+  jobPositions: JobPosition[];
+  actor: User | null;
 }
 
-export function UserEditDialog({ open, onOpenChange, onSave, user }: UserEditDialogProps) {
+const levels: PermissionLevel[] = ['basic', 'medium', 'full'];
+
+export function UserEditDialog({
+  open,
+  onOpenChange,
+  onSave,
+  user,
+  staffBlocks,
+  jobPositions,
+  actor,
+}: UserEditDialogProps) {
   const [name, setName] = useState('');
-  const [role, setRole] = useState<UserRole>('smm-specialist');
   const [password, setPassword] = useState('');
+  const [positionId, setPositionId] = useState('');
+  const [taskTypeLabel, setTaskTypeLabel] = useState('');
+  const [permissionLevel, setPermissionLevel] = useState<PermissionLevel>('basic');
+
+  const allowedLevels = useMemo(
+    () => levels.filter((l) => canAssignPermissionLevel(actor, l)),
+    [actor],
+  );
 
   useEffect(() => {
     if (user) {
       setName(user.name);
-      setRole(user.role);
       setPassword(user.password);
+      setPositionId(user.positionId || jobPositions[0]?.id || '');
+      setTaskTypeLabel(user.taskTypeLabel ?? '');
+      setPermissionLevel(user.permissionLevel ?? 'basic');
     }
-  }, [user]);
+  }, [user, jobPositions]);
+
+  const selectedPosition = jobPositions.find((p) => p.id === positionId);
+  const inheritedTaskLabel = selectedPosition
+    ? selectedPosition.taskTypeLabel?.trim() || roleLabels[selectedPosition.defaultRole]
+    : '';
 
   const handleSave = () => {
-    if (!name || !user) {
-      alert('Введите имя пользователя');
+    if (!name.trim() || !user) {
+      toast.error('Введите имя пользователя');
       return;
     }
-
     if (!password) {
-      alert('Введите пароль');
+      toast.error('Введите пароль');
+      return;
+    }
+    if (!selectedPosition) {
+      toast.error('Выберите должность');
+      return;
+    }
+    if (!canAssignPermissionLevel(actor, permissionLevel)) {
+      toast.error('Нельзя выдать такой уровень прав');
       return;
     }
 
-    onSave(user.id, { name, role, password });
+    const ttl = taskTypeLabel.trim();
+    const taskTypeLabelOut =
+      ttl === '' || ttl === inheritedTaskLabel ? undefined : ttl;
+
+    onSave(user.id, {
+      name: name.trim(),
+      password,
+      role: selectedPosition.defaultRole,
+      blockId: selectedPosition.blockId,
+      positionId: selectedPosition.id,
+      permissionLevel,
+      taskTypeLabel: taskTypeLabelOut,
+    });
     onOpenChange(false);
   };
 
@@ -53,9 +108,7 @@ export function UserEditDialog({ open, onOpenChange, onSave, user }: UserEditDia
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Редактировать сотрудника</DialogTitle>
-          <DialogDescription>
-            Измените информацию о сотруднике
-          </DialogDescription>
+          <DialogDescription>Должность определяет блок и роль в задачах</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
@@ -70,15 +123,51 @@ export function UserEditDialog({ open, onOpenChange, onSave, user }: UserEditDia
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="edit-role">Должность *</Label>
-            <Select value={role} onValueChange={(v) => setRole(v as UserRole)}>
+            <Label>Должность *</Label>
+            <Select value={positionId} onValueChange={setPositionId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Выберите должность" />
+              </SelectTrigger>
+              <SelectContent>
+                {staffBlocks.flatMap((b) =>
+                  jobPositions
+                    .filter((p) => p.blockId === b.id)
+                    .map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {b.name}: {p.name}
+                      </SelectItem>
+                    )),
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="edit-task-type">Подпись в задачах (свой текст)</Label>
+            <Input
+              id="edit-task-type"
+              value={taskTypeLabel}
+              onChange={(e) => setTaskTypeLabel(e.target.value)}
+              placeholder={inheritedTaskLabel ? `По умолчанию: ${inheritedTaskLabel}` : 'Произвольная роль в задачах'}
+            />
+            <p className="text-xs text-muted-foreground">
+              Оставьте пустым, чтобы брать подпись из должности или базовой роли. Иначе введите любой текст.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Уровень прав</Label>
+            <Select
+              value={permissionLevel}
+              onValueChange={(v) => setPermissionLevel(v as PermissionLevel)}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {Object.entries(roleLabels).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
+                {allowedLevels.map((lvl) => (
+                  <SelectItem key={lvl} value={lvl}>
+                    {permissionLabels[lvl]}
                   </SelectItem>
                 ))}
               </SelectContent>

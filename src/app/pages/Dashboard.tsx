@@ -5,16 +5,16 @@ import { Button } from '../components/ui/button';
 import { Link } from 'react-router';
 import { BarChart3, Calendar, CalendarClock, Users, CheckCircle2, AlertCircle, Info } from 'lucide-react';
 import { isBefore } from 'date-fns';
-import { filterUsersByPermissions, filterTasksByPermissions, hasFullAccess, getUserBlock } from '../utils/permissions';
+import { filterUsersByPermissions, filterTasksByPermissions, hasBroadAccess } from '../utils/permissions';
 
 export default function Dashboard() {
-  const { users, tasks, currentUser } = useStore();
+  const { users, tasks, currentUser, staffBlocks, jobPositions } = useStore();
 
   // Фильтруем пользователей и задачи по правам доступа
-  const visibleUsers = filterUsersByPermissions(users, currentUser);
-  const visibleTasks = filterTasksByPermissions(tasks, currentUser);
-  const isFullAccess = hasFullAccess(currentUser);
-  const userBlock = currentUser ? getUserBlock(currentUser.role) : null;
+  const visibleUsers = filterUsersByPermissions(users, currentUser, staffBlocks);
+  const visibleTasks = filterTasksByPermissions(tasks, currentUser, users, staffBlocks);
+  const seesAll = hasBroadAccess(currentUser);
+  const blockName = currentUser ? staffBlocks.find((b) => b.id === currentUser.blockId)?.name : null;
 
   const activeTasks = visibleTasks.filter(t => !t.completed);
   const completedTasks = visibleTasks.filter(t => t.completed);
@@ -29,17 +29,18 @@ export default function Dashboard() {
       </div>
 
       {/* Информация о правах доступа */}
-      {!isFullAccess && (
+      {!seesAll && (
         <Card className="mb-6 bg-blue-50 border-blue-200">
           <CardContent className="py-4">
             <div className="flex items-start gap-3">
               <Info className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
               <div>
                 <p className="text-sm font-medium text-blue-900">
-                  Вы видите только свои задачи и сотрудников своего блока ({userBlock ? ({'smm': 'SMM', 'copywriting': 'копирайтинга', 'content': 'контента'}[userBlock]) : ''}).
+                  Вы видите только свои задачи и сотрудников своего блока
+                  {blockName ? ` («${blockName}»).` : '.'}
                 </p>
                 <p className="text-xs text-blue-700 mt-1">
-                  Редактор и Старший SMM имеют полный доступ ко всем данным.
+                  Средние и полные права открывают все задачи и всех сотрудников; полные дополнительно управляют блоками и должностями.
                 </p>
               </div>
             </div>
@@ -111,7 +112,7 @@ export default function Dashboard() {
               </Button>
             </Link>
           </div>
-          <TeamStats users={visibleUsers} tasks={visibleTasks} />
+          <TeamStats users={visibleUsers} tasks={visibleTasks} jobPositions={jobPositions} />
         </div>
 
         <div>

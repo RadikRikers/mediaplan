@@ -97,7 +97,7 @@ function combineLocalDateTime(dateStr: string, timeStr: string): Date {
 }
 
 export default function Meetings() {
-  const { users, meetings, currentUser, addMeeting, updateMeeting, deleteMeeting } = useStore();
+  const { users, meetings, currentUser, staffBlocks, addMeeting, updateMeeting, deleteMeeting } = useStore();
   const [weekAnchor, setWeekAnchor] = useState(() => new Date());
   const [detailMeeting, setDetailMeeting] = useState<Meeting | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -197,7 +197,7 @@ export default function Meetings() {
     }
     if (editingId) {
       const existing = meetings.find((x) => x.id === editingId);
-      if (!existing || !canManageMeeting(existing, currentUser)) {
+      if (!existing || !canManageMeeting(existing, currentUser, staffBlocks)) {
         toast.error('Нет прав на изменение этой встречи');
         return;
       }
@@ -235,7 +235,7 @@ export default function Meetings() {
 
   const handleDelete = (m: Meeting) => {
     if (!currentUser) return;
-    if (!canManageMeeting(m, currentUser)) {
+    if (!canManageMeeting(m, currentUser, staffBlocks)) {
       toast.error('Нет прав на удаление');
       return;
     }
@@ -451,7 +451,7 @@ export default function Meetings() {
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter className="gap-2 sm:gap-0 flex-col sm:flex-row">
-                {canManageMeeting(detailMeeting, currentUser) ? (
+                {canManageMeeting(detailMeeting, currentUser, staffBlocks) ? (
                   <>
                     <Button type="button" variant="outline" onClick={() => openEdit(detailMeeting)}>
                       <Pencil className="h-4 w-4 mr-2" />
@@ -468,7 +468,7 @@ export default function Meetings() {
                   </>
                 ) : (
                   <p className="text-xs text-gray-500 w-full text-left">
-                    Удалить и редактировать может автор встречи или сотрудник с полным доступом (редактор / старший SMM).
+                    Удалить и редактировать может автор или сотрудник со средними/полными правами.
                   </p>
                 )}
               </DialogFooter>

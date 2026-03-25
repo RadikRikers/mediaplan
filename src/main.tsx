@@ -1,7 +1,6 @@
-
-  import { createRoot } from "react-dom/client";
-  import App from "./app/App.tsx";
-  import "./styles/index.css";
+import { createRoot } from 'react-dom/client';
+import App from './app/App.tsx';
+import './styles/index.css';
 
 // Register service worker for reminder notifications.
 // Using relative path so it works even when the app is hosted in a subfolder.
@@ -13,5 +12,4 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
   });
 }
 
-  createRoot(document.getElementById("root")!).render(<App />);
-  
+createRoot(document.getElementById('root')!).render(<App />);

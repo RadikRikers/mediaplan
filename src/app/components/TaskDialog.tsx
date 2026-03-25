@@ -13,7 +13,19 @@ import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Checkbox } from './ui/checkbox';
-import { Task, User, CommunicationChannel, TaskCategory, RecurrenceType, KPIType, categoryLabels, recurrenceLabels, roleLabels } from '../types';
+import {
+  Task,
+  User,
+  CommunicationChannel,
+  JobPosition,
+  TaskCategory,
+  RecurrenceType,
+  KPIType,
+  categoryLabels,
+  recurrenceLabels,
+  displayTaskTypeLabel,
+} from '../types';
+import { toast } from 'sonner';
 
 interface TaskDialogProps {
   open: boolean;
@@ -21,10 +33,11 @@ interface TaskDialogProps {
   onSave: (task: Omit<Task, 'id' | 'createdAt'>) => void;
   users: User[];
   channels: CommunicationChannel[];
+  jobPositions?: JobPosition[];
   task?: Task;
 }
 
-export function TaskDialog({ open, onOpenChange, onSave, users, channels, task }: TaskDialogProps) {
+export function TaskDialog({ open, onOpenChange, onSave, users, channels, jobPositions = [], task }: TaskDialogProps) {
   const [title, setTitle] = useState(task?.title || '');
   const [description, setDescription] = useState(task?.description || '');
   const [deadline, setDeadline] = useState(
@@ -61,24 +74,24 @@ export function TaskDialog({ open, onOpenChange, onSave, users, channels, task }
   }, [open, task]);
 
   const handleSave = () => {
-    if (!title) {
-      alert('Заполните название');
+    if (!title.trim()) {
+      toast.error('Укажите название задачи');
       return;
     }
 
     if (assignees.length === 0) {
-      alert('Выберите хотя бы одного ответственного');
+      toast.error('Выберите хотя бы одного ответственного');
       return;
     }
 
     if (!withoutDeadline && !deadline) {
-      alert('Укажите дедлайн или отметьте "Без дедлайна"');
+      toast.error('Укажите дедлайн или отметьте «Без дедлайна»');
       return;
     }
 
     const taskData: Omit<Task, 'id' | 'createdAt'> = {
-      title,
-      description,
+      title: title.trim(),
+      description: description.trim(),
       deadline: withoutDeadline ? undefined : new Date(deadline).toISOString(),
       category,
       assignees,
@@ -86,18 +99,18 @@ export function TaskDialog({ open, onOpenChange, onSave, users, channels, task }
       completed: task?.completed || false,
       completedAt: task?.completedAt,
       kpiType,
-      kpiTarget: kpiType !== 'none' && kpiTarget ? parseInt(kpiTarget) : undefined,
+      kpiTarget: kpiType !== 'none' && kpiTarget ? parseInt(kpiTarget, 10) : undefined,
       channels: selectedChannels,
     };
 
     // Добавляем специфичные поля для повторений
     if (recurrence === 'weekly' || recurrence === 'biweekly') {
-      taskData.dayOfWeek = parseInt(dayOfWeek);
+      taskData.dayOfWeek = parseInt(dayOfWeek, 10);
     } else if (recurrence === 'monthly') {
-      taskData.dayOfMonth = parseInt(dayOfMonth);
+      taskData.dayOfMonth = parseInt(dayOfMonth, 10);
     } else if (recurrence === 'quarterly') {
-      taskData.monthOfQuarter = parseInt(monthOfQuarter);
-      taskData.dayOfQuarter = parseInt(dayOfQuarter);
+      taskData.monthOfQuarter = parseInt(monthOfQuarter, 10);
+      taskData.dayOfQuarter = parseInt(dayOfQuarter, 10);
     }
 
     onSave(taskData);
@@ -313,7 +326,7 @@ export function TaskDialog({ open, onOpenChange, onSave, users, channels, task }
                     htmlFor={`user-${user.id}`}
                     className="text-sm cursor-pointer flex-1"
                   >
-                    {user.name} ({roleLabels[user.role]})
+                    {user.name} ({displayTaskTypeLabel(user, jobPositions)})
                   </label>
                 </div>
               ))}

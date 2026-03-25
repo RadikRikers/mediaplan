@@ -1,18 +1,37 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useStore } from '../store';
+import { isRemoteSyncConfigured } from '../api/backend';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { isServiceAccount } from '../constants/serviceAccount';
+import { RefreshCw } from 'lucide-react';
 
 export default function Account() {
-  const { currentUser, updateUser } = useStore();
+  const { currentUser, updateUser, pullFromServer, cloudSyncStatus } = useStore();
 
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [syncBusy, setSyncBusy] = useState(false);
+
+  const handlePullSync = async () => {
+    if (!isRemoteSyncConfigured()) {
+      toast.message('Облако не подключено', {
+        description: 'Задайте переменные Supabase в .env для синхронизации.',
+      });
+      return;
+    }
+    setSyncBusy(true);
+    try {
+      const ok = await pullFromServer();
+      if (ok) toast.success('Данные обновлены с сервера');
+    } finally {
+      setSyncBusy(false);
+    }
+  };
 
   const handleChangePassword = (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,11 +76,35 @@ export default function Account() {
         )}
       </div>
 
+      {isRemoteSyncConfigured() && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="text-lg">Синхронизация</CardTitle>
+            <CardDescription>
+              Подтянуть актуальное состояние из Supabase (задачи, команду, встречи). Полезно после работы с
+              другого устройства.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={syncBusy || cloudSyncStatus === 'loading'}
+              onClick={() => void handlePullSync()}
+              className="gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${syncBusy || cloudSyncStatus === 'loading' ? 'animate-spin' : ''}`} />
+              Обновить с сервера
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Сменить пароль</CardTitle>
           <CardDescription>
-            Пароль хранится локально в вашем браузере (демо-режим).
+            При подключённом Supabase пароль сохраняется в общем состоянии и действует на всех устройствах после синхронизации.
           </CardDescription>
         </CardHeader>
         <CardContent>

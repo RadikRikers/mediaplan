@@ -14,14 +14,25 @@ import { Task, TaskCategory, categoryLabels } from '../types';
 import { filterTasksByPermissions } from '../utils/permissions';
 
 export default function MediaPlan() {
-  const { users, tasks, channels, currentUser, addTask, updateTask, deleteTask, getTasksForDate } = useStore();
+  const {
+    users,
+    tasks,
+    channels,
+    currentUser,
+    staffBlocks,
+    jobPositions,
+    addTask,
+    updateTask,
+    deleteTask,
+    getTasksForDate,
+  } = useStore();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>(undefined);
 
   // Фильтруем задачи по правам доступа
   const allTasksForDate = getTasksForDate(selectedDate);
-  const tasksForDate = filterTasksByPermissions(allTasksForDate, currentUser);
+  const tasksForDate = filterTasksByPermissions(allTasksForDate, currentUser, users, staffBlocks);
 
   const getTasksByCategory = (category: TaskCategory) => {
     return tasksForDate.filter(t => t.category === category);
@@ -134,6 +145,7 @@ export default function MediaPlan() {
                           task={task}
                           users={users}
                           channels={channels}
+                          jobPositions={jobPositions}
                           onToggleComplete={handleToggleComplete}
                           onEdit={handleEditTask}
                           onDelete={handleDeleteTask}
@@ -170,6 +182,7 @@ export default function MediaPlan() {
         onSave={handleSaveTask}
         users={users}
         channels={channels}
+        jobPositions={jobPositions}
         task={editingTask}
       />
     </div>
