@@ -48,18 +48,18 @@ export function UserDialog({
   const [permissionLevel, setPermissionLevel] = useState<PermissionLevel>('basic');
 
   const allowedLevels = useMemo(
-    () => levels.filter((l) => canAssignPermissionLevel(actor, l)),
-    [actor],
+    () => levels.filter((l) => canAssignPermissionLevel(actor, l, staffBlocks)),
+    [actor, staffBlocks],
   );
 
   useEffect(() => {
     if (!open || jobPositions.length === 0) return;
     setPositionId(jobPositions[0].id);
     setTaskTypeLabel('');
-    if (actor && canAssignPermissionLevel(actor, 'basic')) setPermissionLevel('basic');
-    else if (actor && canAssignPermissionLevel(actor, 'medium')) setPermissionLevel('medium');
+    if (actor && canAssignPermissionLevel(actor, 'basic', staffBlocks)) setPermissionLevel('basic');
+    else if (actor && canAssignPermissionLevel(actor, 'medium', staffBlocks)) setPermissionLevel('medium');
     else setPermissionLevel('full');
-  }, [open, actor, jobPositions]);
+  }, [open, actor, jobPositions, staffBlocks]);
 
   const selectedPosition = jobPositions.find((p) => p.id === positionId);
   const inheritedTaskLabel = selectedPosition
@@ -79,7 +79,7 @@ export function UserDialog({
       toast.error('Выберите должность');
       return;
     }
-    if (!canAssignPermissionLevel(actor, permissionLevel)) {
+    if (!canAssignPermissionLevel(actor, permissionLevel, staffBlocks)) {
       toast.error('Нельзя выдать такой уровень прав');
       return;
     }

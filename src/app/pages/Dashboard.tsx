@@ -125,7 +125,13 @@ export default function Dashboard() {
               </Button>
             </Link>
           </div>
-          <TeamStats users={displayUsers} tasks={visibleTasks} jobPositions={jobPositions} />
+          <TeamStats
+            users={displayUsers}
+            tasks={visibleTasks}
+            jobPositions={jobPositions}
+            staffBlocks={staffBlocks}
+            workloadScope="media"
+          />
         </div>
 
         <div>

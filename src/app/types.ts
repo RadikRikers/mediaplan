@@ -4,7 +4,9 @@ export type UserRole =
   | 'copywriter'
   | 'editor'
   | 'designer'
-  | 'videographer';
+  | 'videographer'
+  /** Блок «Общее руководство» — не путать с редактором копирайтинга */
+  | 'org-leadership';
 
 /** Полные — сервис и настраиваемые учётки; средние — расширенный доступ; начальные — ограниченный по блоку */
 export type PermissionLevel = 'full' | 'medium' | 'basic';
@@ -147,6 +149,7 @@ export const roleLabels: Record<UserRole, string> = {
   'editor': 'Редактор',
   'designer': 'Дизайнер',
   'videographer': 'Видеограф',
+  'org-leadership': 'Руководство',
 };
 
 export const categoryLabels: Record<TaskCategory, string> = {
@@ -169,8 +172,10 @@ export const recurrenceLabels: Record<RecurrenceType, string> = {
 
 export const roleBlocks = {
   smm: ['smm-specialist', 'senior-smm-specialist'] as UserRole[],
+  /** Редактор копирайтинга — без роли «Руководство» блока org-leadership */
   copywriting: ['copywriter', 'editor'] as UserRole[],
   content: ['designer', 'videographer'] as UserRole[],
+  leadership: ['org-leadership'] as UserRole[],
 };
 
 export const blockLabels = {

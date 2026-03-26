@@ -50,8 +50,8 @@ export function UserEditDialog({
   const [permissionLevel, setPermissionLevel] = useState<PermissionLevel>('basic');
 
   const allowedLevels = useMemo(
-    () => levels.filter((l) => canAssignPermissionLevel(actor, l)),
-    [actor],
+    () => levels.filter((l) => canAssignPermissionLevel(actor, l, staffBlocks)),
+    [actor, staffBlocks],
   );
 
   useEffect(() => {
@@ -82,7 +82,7 @@ export function UserEditDialog({
       toast.error('Выберите должность');
       return;
     }
-    if (!canAssignPermissionLevel(actor, permissionLevel)) {
+    if (!canAssignPermissionLevel(actor, permissionLevel, staffBlocks)) {
       toast.error('Нельзя выдать такой уровень прав');
       return;
     }

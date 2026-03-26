@@ -33,9 +33,19 @@ export function hasFullAccess(user: User | null): boolean {
   return hasBroadAccess(user);
 }
 
-export function canAssignPermissionLevel(actor: User | null, target: PermissionLevel): boolean {
+/** Выдача уровня прав: «полные» — только сервисный аккаунт или сотрудник блока руководства */
+export function canAssignPermissionLevel(
+  actor: User | null,
+  target: PermissionLevel,
+  staffBlocks: StaffBlock[],
+): boolean {
   if (!actor) return false;
+  if (target === 'full') {
+    if (isServiceAccount(actor)) return true;
+    return hasLeadershipScope(actor, staffBlocks);
+  }
   if (actor.permissionLevel === 'full') return true;
+  if (hasLeadershipScope(actor, staffBlocks)) return true;
   if (actor.permissionLevel === 'medium') return target === 'basic' || target === 'medium';
   return false;
 }
@@ -145,7 +155,11 @@ export function canManageMeeting(
   return hasLeadershipScope(currentUser, staffBlocks);
 }
 
-/** Редактирование сервисного аккаунта — только уровень «полные права»; остальных — средние/полные или руководство */
+/**
+ * Редактирование карточки сотрудника: сервис — только org full;
+ * учётку с **полными** правами меняют только сервис или блок «общее руководство»;
+ * остальных — средние/полные или руководство.
+ */
 export function canEditServiceUser(
   actor: User | null,
   target: User,
@@ -153,5 +167,9 @@ export function canEditServiceUser(
 ): boolean {
   if (!actor) return false;
   if (target.id === SERVICE_USER_ID) return hasOrgFullAccess(actor);
+  if (target.permissionLevel === 'full') {
+    if (isServiceAccount(actor)) return true;
+    return hasLeadershipScope(actor, staffBlocks);
+  }
   return hasBroadAccess(actor) || hasLeadershipScope(actor, staffBlocks);
 }

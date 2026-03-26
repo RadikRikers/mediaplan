@@ -26,6 +26,11 @@ import {
 import { toast } from 'sonner';
 import { isServiceAccount, SERVICE_USER_ID } from './constants/serviceAccount';
 import {
+  LEADERSHIP_BLOCK_ID,
+  MEDIA_ROOT_ID,
+  MEDIA_SUB_BLOCK_IDS,
+} from './constants/staffBlockIds';
+import {
   fetchRemoteState,
   saveRemoteState,
   isRemoteSyncConfigured,
@@ -53,11 +58,6 @@ const SESSION_USER_KEY = 'mediaplanning_session_user';
 const DEMO_TASK_IDS = new Set(Array.from({ length: 42 }, (_, i) => String(i + 1)));
 
 const orgSeedAt = new Date().toISOString();
-
-const MEDIA_ROOT_ID = 'blk-media';
-/** Корневой блок общего руководства — видимость всех задач и команды */
-const LEADERSHIP_BLOCK_ID = 'blk-leadership';
-const DEFAULT_SUB_BLOCKS = ['blk-smm', 'blk-copy', 'blk-content'] as const;
 
 /** Общий родитель + подблоки SMM / копирайт / контент (права по подблокам как раньше) */
 const initialStaffBlocks: StaffBlock[] = [
@@ -109,7 +109,7 @@ const initialJobPositions: JobPosition[] = [
     id: 'pos-leadership',
     name: 'Руководство',
     blockId: LEADERSHIP_BLOCK_ID,
-    defaultRole: 'editor',
+    defaultRole: 'org-leadership',
     createdAt: orgSeedAt,
   },
   { id: 'pos-senior-smm', name: 'Старший SMM-специалист', blockId: 'blk-smm', defaultRole: 'senior-smm-specialist', createdAt: orgSeedAt },
@@ -122,11 +122,13 @@ const initialJobPositions: JobPosition[] = [
 
 function permissionLevelFromLegacyUser(id: string, role: UserRole): PermissionLevel {
   if (id === SERVICE_USER_ID) return 'full';
+  if (role === 'org-leadership') return 'medium';
   if (role === 'editor' || role === 'senior-smm-specialist') return 'medium';
   return 'basic';
 }
 
 function legacyBlockIdForRole(role: UserRole): string {
+  if (role === 'org-leadership') return LEADERSHIP_BLOCK_ID;
   if (roleBlocks.smm.includes(role)) return 'blk-smm';
   if (roleBlocks.copywriting.includes(role)) return 'blk-copy';
   if (roleBlocks.content.includes(role)) return 'blk-content';
@@ -137,6 +139,7 @@ function legacyPositionIdForRole(role: UserRole): string {
   const m: Record<UserRole, string> = {
     'senior-smm-specialist': 'pos-senior-smm',
     'smm-specialist': 'pos-smm',
+    'org-leadership': 'pos-leadership',
     'editor': 'pos-editor',
     'copywriter': 'pos-copy',
     'designer': 'pos-designer',
@@ -147,13 +150,20 @@ function legacyPositionIdForRole(role: UserRole): string {
 
 function normalizeUserWire(raw: Record<string, unknown>): User {
   const id = String(raw.id ?? '');
-  const role = (raw.role as UserRole) || 'smm-specialist';
+  let role = (raw.role as UserRole) || 'smm-specialist';
   const permissionLevel =
     (raw.permissionLevel as PermissionLevel) || permissionLevelFromLegacyUser(id, role);
   const blockId =
     typeof raw.blockId === 'string' && raw.blockId ? raw.blockId : legacyBlockIdForRole(role);
-  const positionId =
+  /* Сотрудники блока руководства раньше могли иметь role editor — отделяем от копирайтинга */
+  if (blockId === LEADERSHIP_BLOCK_ID && role === 'editor') {
+    role = 'org-leadership';
+  }
+  let positionId =
     typeof raw.positionId === 'string' && raw.positionId ? raw.positionId : legacyPositionIdForRole(role);
+  if (blockId === LEADERSHIP_BLOCK_ID && role === 'org-leadership' && positionId === 'pos-editor') {
+    positionId = 'pos-leadership';
+  }
   const ttl = typeof raw.taskTypeLabel === 'string' ? raw.taskTypeLabel.trim() : '';
   return {
     id,
@@ -222,7 +232,7 @@ function ensureStaffBlockHierarchy(blocks: StaffBlock[]): StaffBlock[] {
       ...next,
     ];
   }
-  if (!byId.has(MEDIA_ROOT_ID) && DEFAULT_SUB_BLOCKS.some((id) => byId.has(id))) {
+  if (!byId.has(MEDIA_ROOT_ID) && MEDIA_SUB_BLOCK_IDS.some((id) => byId.has(id))) {
     next = [
       {
         id: MEDIA_ROOT_ID,
@@ -236,7 +246,10 @@ function ensureStaffBlockHierarchy(blocks: StaffBlock[]): StaffBlock[] {
     ];
   }
   return next.map((b) => {
-    if (DEFAULT_SUB_BLOCKS.includes(b.id as (typeof DEFAULT_SUB_BLOCKS)[number]) && !b.parentBlockId) {
+    if (b.id === LEADERSHIP_BLOCK_ID) {
+      return { ...b, parentBlockId: null };
+    }
+    if (MEDIA_SUB_BLOCK_IDS.includes(b.id as (typeof MEDIA_SUB_BLOCK_IDS)[number]) && !b.parentBlockId) {
       return { ...b, parentBlockId: MEDIA_ROOT_ID };
     }
     return b;
@@ -270,7 +283,7 @@ function ensureLeadershipJobPosition(
       id: 'pos-leadership',
       name: 'Руководство',
       blockId: LEADERSHIP_BLOCK_ID,
-      defaultRole: 'editor',
+      defaultRole: 'org-leadership',
       createdAt: seedAt,
     }),
   ];

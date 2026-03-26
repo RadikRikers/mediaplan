@@ -121,7 +121,9 @@ export default function Team() {
 
   const handleEditUser = (user: User) => {
     if (!canEditServiceUser(currentUser, user, staffBlocks)) {
-      toast.error('Эту учётную запись может менять только сотрудник с полными правами');
+      toast.error(
+        'Недостаточно прав: карточки с полным доступом меняют только сервисный аккаунт или сотрудник блока «Общее руководство».',
+      );
       return;
     }
     setEditingUser(user);
@@ -238,7 +240,13 @@ export default function Team() {
 
             <div>
               <h2 className="text-xl font-bold text-gray-900 mb-4">Загруженность</h2>
-              <TeamStats users={displayUsers} tasks={visibleTasks} jobPositions={jobPositions} />
+              <TeamStats
+                users={displayUsers}
+                tasks={visibleTasks}
+                jobPositions={jobPositions}
+                staffBlocks={staffBlocks}
+                workloadScope="organization"
+              />
             </div>
           </div>
         </TabsContent>
