@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   User,
   Task,
+  ContentSocialPlatform,
   CommunicationChannel,
   Meeting,
   StaffBlock,
@@ -1097,7 +1098,15 @@ function migrateServiceUserId(u: User): User {
   return normalizeUserWire(raw);
 }
 
+const CONTENT_SOCIAL_PLATFORMS: ContentSocialPlatform[] = ['vk', 'max', 'telegram', 'ok'];
+
 function normalizeTaskWire(raw: Record<string, unknown>): Task {
+  const spRaw = raw.socialPlatform;
+  const socialPlatform =
+    typeof spRaw === 'string' && CONTENT_SOCIAL_PLATFORMS.includes(spRaw as ContentSocialPlatform)
+      ? (spRaw as ContentSocialPlatform)
+      : undefined;
+
   return {
     ...(raw as unknown as Task),
     deadline: typeof raw.deadline === 'string' && raw.deadline ? raw.deadline : undefined,
@@ -1105,6 +1114,7 @@ function normalizeTaskWire(raw: Record<string, unknown>): Task {
     kpiType: (raw.kpiType as Task['kpiType']) || 'none',
     completed: Boolean(raw.completed),
     completedAt: typeof raw.completedAt === 'string' ? raw.completedAt : undefined,
+    socialPlatform,
   };
 }
 

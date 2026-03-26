@@ -47,6 +47,16 @@ export type TaskCategory =
   | 'bloggers'
   | 'reports';
 
+/** Площадка публикации поста (контент-план и задачи «Блогеры») */
+export type ContentSocialPlatform = 'vk' | 'max' | 'telegram' | 'ok';
+
+export const contentSocialPlatformLabels: Record<ContentSocialPlatform, string> = {
+  vk: 'VK',
+  max: 'MAX',
+  telegram: 'Telegram',
+  ok: 'Одноклассники',
+};
+
 export type RecurrenceType = 'none' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'yearly';
 
 export type KPIType = 'views' | 'links' | 'none';
@@ -96,6 +106,8 @@ export interface Task {
   kpiType: KPIType;
   kpiTarget?: number;
   channels: string[]; // channel IDs
+  /** Площадка размещения (контент-план / блогеры) */
+  socialPlatform?: ContentSocialPlatform;
   createdAt: string;
 }
 

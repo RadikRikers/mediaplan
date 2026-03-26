@@ -3,20 +3,30 @@ import { format, isSameDay, startOfWeek, addDays } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useStore } from '../store';
 import { filterTasksByPermissions } from '../utils/permissions';
-import type { Task } from '../types';
-import type { TaskCategory, KPIType, RecurrenceType } from '../types';
+import type { Task, TaskCategory, KPIType, RecurrenceType, ContentSocialPlatform } from '../types';
+import { contentSocialPlatformLabels } from '../types';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Card, CardContent, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
 import { Plus, Trash2, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
 import { toast } from 'sonner';
 import { isServiceAccount } from '../constants/serviceAccount';
 import { cn } from '../components/ui/utils';
 
 type Slot = { index: number; time: string; label: string };
+
+const CONTENT_PLATFORMS: ContentSocialPlatform[] = ['vk', 'max', 'telegram', 'ok'];
+const DEFAULT_CONTENT_PLATFORM: ContentSocialPlatform = 'vk';
 
 const SLOT_TIMES: Slot[] = [
   { index: 0, time: '10:00', label: 'Утро' },
@@ -58,6 +68,7 @@ export default function ContentPlan() {
   const [editingSlotIndex, setEditingSlotIndex] = useState<number>(0);
   const [postTitle, setPostTitle] = useState('');
   const [postDescription, setPostDescription] = useState('');
+  const [postPlatform, setPostPlatform] = useState<ContentSocialPlatform>(DEFAULT_CONTENT_PLATFORM);
 
   const weekStart = useMemo(() => startOfWeek(weekAnchor, { weekStartsOn: 1 }), [weekAnchor]);
   const weekEnd = useMemo(() => addDays(weekStart, 6), [weekStart]);
@@ -99,6 +110,7 @@ export default function ContentPlan() {
     setEditingSlotIndex(0);
     setPostTitle('');
     setPostDescription('');
+    setPostPlatform(DEFAULT_CONTENT_PLATFORM);
   };
 
   const openCreate = (publicId: string, day: Date, slotIndex: number) => {
@@ -113,10 +125,12 @@ export default function ContentPlan() {
       setEditingTaskId(existing.id);
       setPostTitle(existing.title ?? '');
       setPostDescription(existing.description ?? '');
+      setPostPlatform(existing.socialPlatform ?? DEFAULT_CONTENT_PLATFORM);
     } else {
       setEditingTaskId(null);
       setPostTitle('');
       setPostDescription('');
+      setPostPlatform(DEFAULT_CONTENT_PLATFORM);
     }
     setDialogOpen(true);
   };
@@ -159,6 +173,7 @@ export default function ContentPlan() {
       completedAt: undefined,
       kpiType: 'none' as KPIType,
       channels: [editingPublicId],
+      socialPlatform: postPlatform,
     };
 
     if (editingTaskId) {
@@ -377,6 +392,11 @@ export default function ContentPlan() {
                               )}
                             >
                               <span className="text-[10px] text-slate-500 font-medium">{slot.label} · {slot.time}</span>
+                              {existing?.socialPlatform && (
+                                <span className="inline-block mt-0.5 text-[10px] font-semibold text-sky-700">
+                                  {contentSocialPlatformLabels[existing.socialPlatform]}
+                                </span>
+                              )}
                               <span className="block font-medium text-slate-900 line-clamp-2 mt-0.5">
                                 {existing ? existing.title : 'Новый пост'}
                               </span>
@@ -418,6 +438,24 @@ export default function ContentPlan() {
           </DialogHeader>
 
           <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="post-platform">Площадка</Label>
+              <Select
+                value={postPlatform}
+                onValueChange={(v) => setPostPlatform(v as ContentSocialPlatform)}
+              >
+                <SelectTrigger id="post-platform" className="w-full">
+                  <SelectValue placeholder="Выберите платформу" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CONTENT_PLATFORMS.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {contentSocialPlatformLabels[p]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="post-title">Заголовок *</Label>
               <Input id="post-title" value={postTitle} onChange={(e) => setPostTitle(e.target.value)} />

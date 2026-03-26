@@ -6,6 +6,7 @@ import {
   categoryLabels,
   recurrenceLabels,
   displayTaskTypeLabel,
+  contentSocialPlatformLabels,
 } from '../types';
 import { SERVICE_USER_ID } from '../constants/serviceAccount';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -102,9 +103,14 @@ export function TaskCard({
               <CardTitle className={cn('text-base', task.completed && 'line-through text-gray-500')}>
                 {task.title}
               </CardTitle>
-              <Badge variant="outline" className="mt-1">
-                {categoryLabels[task.category]}
-              </Badge>
+              <div className="mt-1 flex flex-wrap gap-1">
+                <Badge variant="outline">{categoryLabels[task.category]}</Badge>
+                {task.socialPlatform && (
+                  <Badge variant="secondary" className="text-xs">
+                    {contentSocialPlatformLabels[task.socialPlatform]}
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
           <div className="flex gap-1">

@@ -103,6 +103,7 @@ export function TaskDialog({ open, onOpenChange, onSave, users, channels, jobPos
       kpiType,
       kpiTarget: kpiType !== 'none' && kpiTarget ? parseInt(kpiTarget, 10) : undefined,
       channels: selectedChannels,
+      socialPlatform: category === 'bloggers' ? task?.socialPlatform : undefined,
     };
 
     // Добавляем специфичные поля для повторений
