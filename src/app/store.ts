@@ -33,7 +33,7 @@ import {
 } from './api/backend';
 
 /** Состояние синхронизации с Supabase (для индикатора в шапке) */
-export type CloudSyncStatus = 'off' | 'loading' | 'ready' | 'error';
+export type CloudSyncStatus = 'off' | 'loading' | 'saving' | 'ready' | 'error';
 
 // Локальное хранилище данных
 const STORAGE_KEYS = {
@@ -1238,7 +1238,10 @@ function taskOccursOnCalendarDay(task: Task, targetDate: Date): boolean {
   const day = startOfDay(targetDate);
   let cur = startOfDay(new Date(task.deadline));
   if (task.recurrence === 'none') {
-    return isSameDay(cur, day);
+    if (isSameDay(cur, day)) return true;
+    // Просроченные разовые задачи остаются на календаре в каждый следующий день, пока не выполнены
+    if (!task.completed && isAfter(day, cur)) return true;
+    return false;
   }
   let g = 0;
   while (isAfter(cur, day) && g++ < 400) {
@@ -1273,7 +1276,8 @@ export function useStore() {
   const [cloudSyncStatus, setCloudSyncStatus] = useState<CloudSyncStatus>('off');
 
   const lastWrittenRef = useRef<string | null>(null);
-  const remoteSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const remotePersistTailRef = useRef(Promise.resolve());
+  const latestRemotePayloadRef = useRef<RemoteStatePayload | null>(null);
   const cloudErrorResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Пока false — не отправляем PUT, чтобы не затереть БД старым localStorage до ответа GET */
   const remoteHydratedRef = useRef(!isRemoteSyncConfigured());
@@ -1372,7 +1376,7 @@ export function useStore() {
     const id = setInterval(() => {
       if (remotePullInFlightRef.current) return;
       remotePullInFlightRef.current = true;
-      remoteHydratedRef.current = false;
+      // Не сбрасываем remoteHydratedRef — иначе во время pull блокируется запись на сервер
       void pullFromServer()
         .catch(() => {
           /* pullFromServer сам покажет тост/статус */
@@ -1432,7 +1436,56 @@ export function useStore() {
     localStorage.setItem(STORAGE_KEYS.PUSH_NOTIFICATIONS_ENABLED, JSON.stringify(pushNotificationsEnabled));
   }, [pushNotificationsEnabled, currentUser]);
 
-  // Облачное состояние (Supabase)
+  // Актуальный снимок для дозаписи при уходе со страницы
+  useEffect(() => {
+    if (!currentUser) {
+      latestRemotePayloadRef.current = null;
+      return;
+    }
+    latestRemotePayloadRef.current = {
+      users,
+      tasks,
+      channels,
+      meetings,
+      staffBlocks,
+      jobPositions,
+      notificationsShown: [...notificationsShown],
+      pushNotificationsEnabled,
+    };
+  }, [
+    users,
+    tasks,
+    channels,
+    meetings,
+    staffBlocks,
+    jobPositions,
+    notificationsShown,
+    pushNotificationsEnabled,
+    currentUser,
+  ]);
+
+  useEffect(() => {
+    if (!isRemoteSyncConfigured()) return;
+
+    const flushOnLeave = () => {
+      if (document.visibilityState !== 'hidden') return;
+      if (!remoteHydratedRef.current) return;
+      const payload = latestRemotePayloadRef.current;
+      if (!payload) return;
+      void saveRemoteState(payload).catch(() => {
+        /* офлайн / вкладка закрывается — повтор при следующем визите */
+      });
+    };
+
+    document.addEventListener('visibilitychange', flushOnLeave);
+    window.addEventListener('pagehide', flushOnLeave);
+    return () => {
+      document.removeEventListener('visibilitychange', flushOnLeave);
+      window.removeEventListener('pagehide', flushOnLeave);
+    };
+  }, []);
+
+  // Облачное состояние (Supabase) — сохраняем сразу после изменения, очередь гарантирует порядок PUT
   useEffect(() => {
     if (!currentUser) return;
     if (!isRemoteSyncConfigured()) return;
@@ -1451,31 +1504,24 @@ export function useStore() {
     const snap = snapshotState(payload);
     if (lastWrittenRef.current === snap) return;
 
-    if (remoteSaveTimerRef.current) clearTimeout(remoteSaveTimerRef.current);
-    remoteSaveTimerRef.current = setTimeout(() => {
-      remoteSaveTimerRef.current = null;
-      saveRemoteState(payload)
-        .then(() => {
-          lastWrittenRef.current = snap;
-        })
-        .catch((err) => {
-          console.error(err);
-          setCloudSyncStatus('error');
-          if (cloudErrorResetRef.current) clearTimeout(cloudErrorResetRef.current);
-          cloudErrorResetRef.current = setTimeout(() => {
-            cloudErrorResetRef.current = null;
-            setCloudSyncStatus('ready');
-          }, 6000);
-          toast.error('Не удалось сохранить в Supabase');
-        });
-    }, 450);
+    setCloudSyncStatus((s) => (s === 'loading' || s === 'off' ? s : 'saving'));
 
-    return () => {
-      if (remoteSaveTimerRef.current) {
-        clearTimeout(remoteSaveTimerRef.current);
-        remoteSaveTimerRef.current = null;
-      }
-    };
+    remotePersistTailRef.current = remotePersistTailRef.current
+      .then(() => saveRemoteState(payload))
+      .then(() => {
+        lastWrittenRef.current = snap;
+        setCloudSyncStatus((s) => (s === 'loading' ? 'loading' : 'ready'));
+      })
+      .catch((err) => {
+        console.error(err);
+        setCloudSyncStatus('error');
+        if (cloudErrorResetRef.current) clearTimeout(cloudErrorResetRef.current);
+        cloudErrorResetRef.current = setTimeout(() => {
+          cloudErrorResetRef.current = null;
+          setCloudSyncStatus((s) => (s === 'loading' ? 'loading' : 'ready'));
+        }, 6000);
+        toast.error('Не удалось сохранить в Supabase');
+      });
   }, [users, tasks, channels, meetings, staffBlocks, jobPositions, notificationsShown, pushNotificationsEnabled, currentUser]);
 
   useEffect(() => {
@@ -1810,7 +1856,8 @@ export function useStore() {
       const taskDeadline = startOfDay(new Date(task.deadline));
       
       if (task.recurrence === 'none') {
-        return !isAfter(targetDate, taskDeadline);
+        // Разовая задача остаётся в медиаплане после дедлайна, пока не отмечена выполненной (просрочка подсвечивается в карточке)
+        return true;
       }
       
       let currentDeadline = taskDeadline;

@@ -45,9 +45,11 @@ function CloudSyncIndicator({ status }: { status: CloudSyncStatus }) {
   const cfg =
     status === 'loading'
       ? { Icon: Loader2, className: 'text-slate-500 animate-spin', hint: 'Загрузка данных из облака…' }
-      : status === 'error'
-        ? { Icon: CloudOff, className: 'text-red-600', hint: 'Ошибка синхронизации. Проверьте сеть и Supabase.' }
-        : { Icon: Cloud, className: 'text-emerald-600', hint: 'Данные синхронизированы с Supabase' };
+      : status === 'saving'
+        ? { Icon: Loader2, className: 'text-amber-600 animate-spin', hint: 'Сохраняем изменения в Supabase…' }
+        : status === 'error'
+          ? { Icon: CloudOff, className: 'text-red-600', hint: 'Ошибка синхронизации. Проверьте сеть и Supabase.' }
+          : { Icon: Cloud, className: 'text-emerald-600', hint: 'Данные синхронизированы с Supabase' };
   const { Icon, className, hint } = cfg;
   return (
     <span
@@ -57,7 +59,13 @@ function CloudSyncIndicator({ status }: { status: CloudSyncStatus }) {
       <Icon className={cn('h-3.5 w-3.5 sm:mr-1.5', className)} aria-hidden />
       <span className="sr-only">{hint}</span>
       <span className="max-w-[7rem] truncate hidden md:inline">
-        {status === 'loading' ? 'Синхронизация…' : status === 'error' ? 'Ошибка' : 'Облако'}
+        {status === 'loading'
+          ? 'Синхронизация…'
+          : status === 'saving'
+            ? 'Запись…'
+            : status === 'error'
+              ? 'Ошибка'
+              : 'Облако'}
       </span>
     </span>
   );

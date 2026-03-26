@@ -89,11 +89,13 @@ export default function Account() {
             <Button
               type="button"
               variant="outline"
-              disabled={syncBusy || cloudSyncStatus === 'loading'}
+              disabled={syncBusy || cloudSyncStatus === 'loading' || cloudSyncStatus === 'saving'}
               onClick={() => void handlePullSync()}
               className="gap-2"
             >
-              <RefreshCw className={`h-4 w-4 ${syncBusy || cloudSyncStatus === 'loading' ? 'animate-spin' : ''}`} />
+              <RefreshCw
+                className={`h-4 w-4 ${syncBusy || cloudSyncStatus === 'loading' || cloudSyncStatus === 'saving' ? 'animate-spin' : ''}`}
+              />
               Обновить с сервера
             </Button>
           </CardContent>
