@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useStore } from '../store';
+import { isRemoteSyncConfigured } from '../api/backend';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -83,6 +84,15 @@ export default function Login() {
               {busy ? 'Проверка…' : 'Войти'}
             </Button>
           </form>
+          {!isRemoteSyncConfigured() && (
+            <p className="text-xs text-center text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 rounded-md px-3 py-2 mt-4 leading-relaxed">
+              <strong>Облако отключено:</strong> в этой сборке нет переменных{' '}
+              <code className="text-[10px]">VITE_SUPABASE_URL</code> /{' '}
+              <code className="text-[10px]">VITE_SUPABASE_ANON_KEY</code>. Данные с другого компьютера не появятся —
+              скопируйте <code className="text-[10px]">.env</code> из проекта на ПК или откройте приложение по тому же
+              URL (Render / Netlify), где ключи уже вшиты в сборку.
+            </p>
+          )}
           <p className="text-xs text-center text-slate-500 mt-4 px-1 leading-relaxed">
             При настроенном Supabase данные подтягиваются с сервера при входе. Имя можно вводить без учёта
             регистра.

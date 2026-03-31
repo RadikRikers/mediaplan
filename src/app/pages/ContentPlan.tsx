@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { format, isSameDay, startOfWeek, addDays } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useStore } from '../store';
-import { filterTasksByPermissions } from '../utils/permissions';
+import { filterTasksByPermissions, hasBroadAccess, hasLeadershipScope } from '../utils/permissions';
 import type { Task, TaskCategory, KPIType, RecurrenceType, ContentSocialPlatform } from '../types';
 import { contentSocialPlatformLabels } from '../types';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
@@ -21,6 +21,7 @@ import {
 import { Plus, Trash2, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
 import { toast } from 'sonner';
 import { isServiceAccount } from '../constants/serviceAccount';
+import { isRemoteSyncConfigured } from '../api/backend';
 import { cn } from '../components/ui/utils';
 
 type Slot = { index: number; time: string; label: string };
@@ -81,8 +82,12 @@ export default function ContentPlan() {
 
   const publics = useMemo(() => {
     if (!currentUser || isServiceAccount(currentUser)) return [];
-    return channels.filter((c) => c.kind === 'public' && c.ownerUserId === currentUser.id);
-  }, [channels, currentUser]);
+    const pubs = channels.filter((c) => c.kind === 'public');
+    const seeAllTeamPublics =
+      hasBroadAccess(currentUser) || hasLeadershipScope(currentUser, staffBlocks);
+    if (seeAllTeamPublics) return pubs;
+    return pubs.filter((c) => c.ownerUserId === currentUser.id);
+  }, [channels, currentUser, staffBlocks]);
 
   const gridTemplate = useMemo(() => {
     const n = Math.max(publics.length, 1);
@@ -317,8 +322,15 @@ export default function ContentPlan() {
 
       {publics.length === 0 ? (
         <Card>
-          <CardContent className="py-8 text-center text-gray-600">
-            Пока нет ваших пабликов. Создайте хотя бы один — появится таблица по дням.
+          <CardContent className="py-8 text-center text-muted-foreground space-y-2 max-w-lg mx-auto">
+            <p>Пока нет пабликов в этой сессии (для вашей роли — только свои или все с командой, см. права).</p>
+            {!isRemoteSyncConfigured() && (
+              <p className="text-amber-800 dark:text-amber-200 text-sm font-medium">
+                Supabase не настроен в этой сборке: добавьте VITE_SUPABASE_URL и VITE_SUPABASE_ANON_KEY в .env или откройте тот же
+                задеплоенный сайт, что и на основном компьютере — иначе данные с сервера не подтянутся.
+              </p>
+            )}
+            <p className="text-sm">Создайте паблик выше — появится таблица по дням.</p>
           </CardContent>
         </Card>
       ) : (

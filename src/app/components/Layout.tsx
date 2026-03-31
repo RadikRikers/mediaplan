@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useTheme } from 'next-themes';
 import { Outlet, useLocation, useNavigate, NavLink } from 'react-router';
 import { useStore, type CloudSyncStatus } from '../store';
+import { isRemoteSyncConfigured } from '../api/backend';
 import { CommandPalette } from './CommandPalette';
 import { isRemoteSyncConfigured } from '../api/backend';
 import { Button } from './ui/button';
@@ -104,7 +105,7 @@ function CloudSyncIndicator({ status }: { status: CloudSyncStatus }) {
 
 export default function Layout() {
   const { theme, setTheme, resolvedTheme } = useTheme();
-  const { currentUser, jobPositions, staffBlocks, setCurrentUser, cloudSyncStatus } = useStore();
+  const { currentUser, jobPositions, staffBlocks, setCurrentUser, cloudSyncStatus, pullFromServer } = useStore();
   const location = useLocation();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -344,6 +345,26 @@ export default function Layout() {
           </div>
         </div>
       </nav>
+
+      {currentUser && !isRemoteSyncConfigured() && (
+        <div
+          role="status"
+          className="bg-amber-50 dark:bg-amber-950/50 text-amber-950 dark:text-amber-100 border-b border-amber-200 dark:border-amber-800 px-4 py-2.5 text-sm text-center"
+        >
+          <strong>Синхронизация выключена:</strong> нет ключей Supabase в этой сборке — вы видите только данные этого
+          браузера. Скопируйте файл <code className="text-xs bg-amber-100/80 dark:bg-amber-900/50 px-1 rounded">.env</code>{' '}
+          с основного компьютера или заходите через тот же задеплоенный адрес приложения.
+        </div>
+      )}
+
+      {currentUser && isRemoteSyncConfigured() && cloudSyncStatus === 'error' && (
+        <div className="bg-red-50 dark:bg-red-950/40 text-red-900 dark:text-red-100 border-b border-red-200 dark:border-red-900 px-4 py-2.5 text-sm flex flex-wrap items-center justify-center gap-3">
+          <span>Не удалось загрузить данные из Supabase.</span>
+          <Button type="button" size="sm" variant="outline" className="h-8" onClick={() => void pullFromServer()}>
+            Повторить загрузку
+          </Button>
+        </div>
+      )}
 
       <main className="min-h-[calc(100vh-7rem)] md:min-h-[calc(100vh-11rem)] border-t border-border/80 bg-muted/30">
         <Outlet />
