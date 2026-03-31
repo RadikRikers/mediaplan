@@ -29,6 +29,9 @@ interface TaskCardProps {
   onDelete: (taskId: string) => void;
   /** Только просмотр выполненной задачи в архиве */
   archiveMode?: boolean;
+  selectionMode?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (taskId: string) => void;
 }
 
 export function TaskCard({
@@ -40,6 +43,9 @@ export function TaskCard({
   onEdit,
   onDelete,
   archiveMode,
+  selectionMode,
+  selected,
+  onToggleSelect,
 }: TaskCardProps) {
   const hasDeadline = Boolean(task.deadline);
   const isOverdue = !task.completed && hasDeadline && isBefore(new Date(task.deadline as string), new Date());
@@ -77,6 +83,15 @@ export function TaskCard({
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-start gap-3 flex-1">
+            {selectionMode && onToggleSelect && (
+              <Checkbox
+                checked={selected}
+                className="mt-1"
+                onCheckedChange={() => onToggleSelect(task.id)}
+                onClick={(e) => e.stopPropagation()}
+                aria-label="Выбрать задачу"
+              />
+            )}
             <Checkbox
               checked={task.completed}
               disabled={archiveMode}
@@ -115,16 +130,15 @@ export function TaskCard({
             </div>
           </div>
           <div className="flex gap-1">
-            {!archiveMode && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onEdit(task)}
-                className="h-8 w-8 p-0"
-              >
-                <Edit className="h-4 w-4" />
-              </Button>
-            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onEdit(task)}
+              className="h-8 w-8 p-0"
+              title={archiveMode ? 'Подробности, комментарии, история' : 'Редактировать'}
+            >
+              <Edit className="h-4 w-4" />
+            </Button>
             <Button
               variant="ghost"
               size="sm"

@@ -12,10 +12,15 @@ struct RemoteStatePayload: Codable, Equatable {
     var pushNotificationsEnabled: Bool
     /// Совпадает с веб `completedTasksLifetimeTotal`: число завершений, не уменьшается при удалении из архива.
     var completedTasksLifetimeTotal: Int
+    var notificationSettings: RemoteNotificationSettings?
+    var taskTemplates: [RemoteTaskTemplate]
+    var savedTaskViews: [RemoteSavedTaskView]
+    var auditLog: [RemoteAuditLogEntry]
 
     enum CodingKeys: String, CodingKey {
         case users, tasks, channels, meetings, staffBlocks, jobPositions, notificationsShown, pushNotificationsEnabled,
             completedTasksLifetimeTotal
+        case notificationSettings, taskTemplates, savedTaskViews, auditLog
     }
 
     init(
@@ -27,7 +32,11 @@ struct RemoteStatePayload: Codable, Equatable {
         jobPositions: [RemoteJobPosition] = [],
         notificationsShown: [String] = [],
         pushNotificationsEnabled: Bool = false,
-        completedTasksLifetimeTotal: Int = 0
+        completedTasksLifetimeTotal: Int = 0,
+        notificationSettings: RemoteNotificationSettings? = nil,
+        taskTemplates: [RemoteTaskTemplate] = [],
+        savedTaskViews: [RemoteSavedTaskView] = [],
+        auditLog: [RemoteAuditLogEntry] = []
     ) {
         self.users = users
         self.tasks = tasks
@@ -38,6 +47,10 @@ struct RemoteStatePayload: Codable, Equatable {
         self.notificationsShown = notificationsShown
         self.pushNotificationsEnabled = pushNotificationsEnabled
         self.completedTasksLifetimeTotal = completedTasksLifetimeTotal
+        self.notificationSettings = notificationSettings
+        self.taskTemplates = taskTemplates
+        self.savedTaskViews = savedTaskViews
+        self.auditLog = auditLog
     }
 
     init(from decoder: Decoder) throws {
@@ -53,7 +66,73 @@ struct RemoteStatePayload: Codable, Equatable {
         let rawLifetime = try c.decodeIfPresent(Int.self, forKey: .completedTasksLifetimeTotal) ?? 0
         let completedInTasks = tasks.filter(\.completed).count
         completedTasksLifetimeTotal = max(rawLifetime, completedInTasks)
+        notificationSettings = try c.decodeIfPresent(RemoteNotificationSettings.self, forKey: .notificationSettings)
+        taskTemplates = try c.decodeIfPresent([RemoteTaskTemplate].self, forKey: .taskTemplates) ?? []
+        savedTaskViews = try c.decodeIfPresent([RemoteSavedTaskView].self, forKey: .savedTaskViews) ?? []
+        auditLog = try c.decodeIfPresent([RemoteAuditLogEntry].self, forKey: .auditLog) ?? []
     }
+}
+
+struct RemoteNotificationSettings: Codable, Equatable {
+    var webhookUrl: String
+    var notifyOnAssign: Bool
+    var notifyDeadlineHours: Int?
+}
+
+struct RemoteTaskComment: Codable, Equatable, Identifiable {
+    var id: String
+    var authorUserId: String
+    var body: String
+    var createdAt: String
+}
+
+struct RemoteTaskActivityEntry: Codable, Equatable, Identifiable {
+    var id: String
+    var at: String
+    var userId: String
+    var action: String
+    var summary: String
+}
+
+struct RemoteTaskTemplateDraft: Codable, Equatable {
+    var title: String
+    var description: String
+    var deadline: String?
+    var assignees: [String]
+    var category: String
+    var recurrence: String?
+    var dayOfWeek: Int?
+    var dayOfMonth: Int?
+    var monthOfQuarter: Int?
+    var dayOfQuarter: Int?
+    var kpiType: String?
+    var kpiTarget: Double?
+    var channels: [String]?
+    var socialPlatform: String?
+}
+
+struct RemoteTaskTemplate: Codable, Equatable, Identifiable {
+    var id: String
+    var name: String
+    var createdAt: String
+    var draft: RemoteTaskTemplateDraft
+}
+
+struct RemoteSavedTaskView: Codable, Equatable, Identifiable {
+    var id: String
+    var name: String
+    var scope: String
+    var search: String
+    var categories: [String]
+}
+
+struct RemoteAuditLogEntry: Codable, Equatable, Identifiable {
+    var id: String
+    var at: String
+    var userId: String
+    var userName: String
+    var action: String
+    var detail: String
 }
 
 struct RemoteUser: Codable, Equatable, Identifiable {
@@ -136,6 +215,9 @@ struct RemoteTask: Codable, Equatable, Identifiable {
     var channels: [String]?
     var socialPlatform: String?
     var createdAt: String?
+    var updatedAt: String?
+    var comments: [RemoteTaskComment]?
+    var activity: [RemoteTaskActivityEntry]?
 
     init(
         id: String,
@@ -155,7 +237,10 @@ struct RemoteTask: Codable, Equatable, Identifiable {
         kpiTarget: Double?,
         channels: [String]?,
         socialPlatform: String?,
-        createdAt: String?
+        createdAt: String?,
+        updatedAt: String? = nil,
+        comments: [RemoteTaskComment]? = nil,
+        activity: [RemoteTaskActivityEntry]? = nil
     ) {
         self.id = id
         self.title = title
@@ -175,6 +260,9 @@ struct RemoteTask: Codable, Equatable, Identifiable {
         self.channels = channels
         self.socialPlatform = socialPlatform
         self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.comments = comments
+        self.activity = activity
     }
 
     init(from decoder: Decoder) throws {
@@ -197,6 +285,9 @@ struct RemoteTask: Codable, Equatable, Identifiable {
         channels = try c.decodeIfPresent([String].self, forKey: .channels)
         socialPlatform = try c.decodeIfPresent(String.self, forKey: .socialPlatform)
         createdAt = try c.decodeIfPresent(String.self, forKey: .createdAt)
+        updatedAt = try c.decodeIfPresent(String.self, forKey: .updatedAt)
+        comments = try c.decodeIfPresent([RemoteTaskComment].self, forKey: .comments)
+        activity = try c.decodeIfPresent([RemoteTaskActivityEntry].self, forKey: .activity)
     }
 
     private static func decodeKpiTarget(from c: KeyedDecodingContainer<CodingKeys>) -> Double? {
@@ -208,6 +299,7 @@ struct RemoteTask: Codable, Equatable, Identifiable {
     private enum CodingKeys: String, CodingKey {
         case id, title, description, deadline, assignees, category, completed, completedAt, recurrence
         case dayOfWeek, dayOfMonth, monthOfQuarter, dayOfQuarter, kpiType, kpiTarget, channels, socialPlatform, createdAt
+        case updatedAt, comments, activity
     }
 }
 

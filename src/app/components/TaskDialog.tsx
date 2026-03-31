@@ -13,6 +13,7 @@ import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Checkbox } from './ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import {
   Task,
   User,
@@ -26,6 +27,8 @@ import {
   displayTaskTypeLabel,
 } from '../types';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
+import { ru } from 'date-fns/locale';
 import { withoutGhostServiceUser, SERVICE_USER_ID } from '../constants/serviceAccount';
 
 interface TaskDialogProps {
@@ -36,9 +39,25 @@ interface TaskDialogProps {
   channels: CommunicationChannel[];
   jobPositions?: JobPosition[];
   task?: Task;
+  /** Для существующей задачи: добавить комментарий (сохраняется в payload). */
+  onAddComment?: (taskId: string, body: string) => void;
+  /** Сохранить текущую задачу как шаблон (родитель сам показывает prompt и вызывает store). */
+  onSaveAsTemplate?: () => void;
 }
 
-export function TaskDialog({ open, onOpenChange, onSave, users, channels, jobPositions = [], task }: TaskDialogProps) {
+export function TaskDialog({
+  open,
+  onOpenChange,
+  onSave,
+  users,
+  channels,
+  jobPositions = [],
+  task,
+  onAddComment,
+  onSaveAsTemplate,
+}: TaskDialogProps) {
+  /** Существующая задача в БД (не черновик из шаблона с id `__draft__`). */
+  const isExistingTask = Boolean(task?.id && task.id !== '__draft__');
   const assigneePickerUsers = useMemo(() => withoutGhostServiceUser(users), [users]);
   const [title, setTitle] = useState(task?.title || '');
   const [description, setDescription] = useState(task?.description || '');
@@ -56,6 +75,8 @@ export function TaskDialog({ open, onOpenChange, onSave, users, channels, jobPos
   const [kpiType, setKpiType] = useState<KPIType>(task?.kpiType || 'none');
   const [kpiTarget, setKpiTarget] = useState(task?.kpiTarget?.toString() || '');
   const [withoutDeadline, setWithoutDeadline] = useState(!task?.deadline);
+  const [dialogTab, setDialogTab] = useState('main');
+  const [commentDraft, setCommentDraft] = useState('');
 
   useEffect(() => {
     if (!open) return;
@@ -73,6 +94,8 @@ export function TaskDialog({ open, onOpenChange, onSave, users, channels, jobPos
     setKpiType(task?.kpiType || 'none');
     setKpiTarget(task?.kpiTarget?.toString() || '');
     setWithoutDeadline(!task?.deadline);
+    setDialogTab('main');
+    setCommentDraft('');
   }, [open, task]);
 
   const handleSave = () => {
@@ -98,8 +121,8 @@ export function TaskDialog({ open, onOpenChange, onSave, users, channels, jobPos
       category,
       assignees: assigneesClean,
       recurrence: withoutDeadline ? 'none' : recurrence,
-      completed: task?.completed || false,
-      completedAt: task?.completedAt,
+      completed: isExistingTask ? task?.completed || false : false,
+      completedAt: isExistingTask ? task?.completedAt : undefined,
       kpiType,
       kpiTarget: kpiType !== 'none' && kpiTarget ? parseInt(kpiTarget, 10) : undefined,
       channels: selectedChannels,
@@ -161,13 +184,24 @@ export function TaskDialog({ open, onOpenChange, onSave, users, channels, jobPos
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{task ? 'Редактировать задачу' : 'Создать задачу'}</DialogTitle>
+          <DialogTitle>{isExistingTask ? 'Редактировать задачу' : 'Создать задачу'}</DialogTitle>
           <DialogDescription>
             Заполните информацию о задаче
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <Tabs value={dialogTab} onValueChange={setDialogTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-3 mb-4">
+            <TabsTrigger value="main">Поля</TabsTrigger>
+            <TabsTrigger value="comments" disabled={!isExistingTask}>
+              Комментарии
+            </TabsTrigger>
+            <TabsTrigger value="history" disabled={!isExistingTask}>
+              История
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="main" className="space-y-4 py-2">
           <div className="space-y-2">
             <Label htmlFor="title">Название *</Label>
             <Input
@@ -390,15 +424,86 @@ export function TaskDialog({ open, onOpenChange, onSave, users, channels, jobPos
               />
             </div>
           )}
-        </div>
+          </TabsContent>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Отмена
-          </Button>
-          <Button onClick={handleSave}>
-            {task ? 'Сохранить' : 'Создать'}
-          </Button>
+          <TabsContent value="comments" className="space-y-3 py-2 min-h-[12rem]">
+            <div className="rounded-md border max-h-48 overflow-y-auto p-2 space-y-2 text-sm">
+              {(task?.comments ?? []).length === 0 ? (
+                <p className="text-muted-foreground">Комментариев пока нет.</p>
+              ) : (
+                (task?.comments ?? []).map((c) => (
+                  <div key={c.id} className="border-b border-border/60 pb-2 last:border-0">
+                    <div className="text-xs text-muted-foreground">
+                      {assigneePickerUsers.find((u) => u.id === c.authorUserId)?.name ?? c.authorUserId} ·{' '}
+                      {format(new Date(c.createdAt), 'dd.MM.yyyy HH:mm', { locale: ru })}
+                    </div>
+                    <p className="whitespace-pre-wrap mt-1">{c.body}</p>
+                  </div>
+                ))
+              )}
+            </div>
+            {onAddComment && isExistingTask && task?.id ? (
+              <div className="space-y-2">
+                <Label>Новый комментарий</Label>
+                <Textarea
+                  value={commentDraft}
+                  onChange={(e) => setCommentDraft(e.target.value)}
+                  rows={3}
+                  placeholder="Текст…"
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    const t = commentDraft.trim();
+                    if (!t) return;
+                    onAddComment(task!.id, t);
+                    setCommentDraft('');
+                    toast.success('Комментарий добавлен');
+                  }}
+                >
+                  Добавить
+                </Button>
+              </div>
+            ) : null}
+          </TabsContent>
+
+          <TabsContent value="history" className="space-y-2 py-2 min-h-[12rem] max-h-64 overflow-y-auto text-sm">
+            {(task?.activity ?? []).length === 0 ? (
+              <p className="text-muted-foreground">История изменений появится после правок.</p>
+            ) : (
+              [...(task?.activity ?? [])]
+                .slice()
+                .reverse()
+                .map((a) => (
+                  <div key={a.id} className="rounded-md border border-border/60 p-2">
+                    <div className="text-xs text-muted-foreground">
+                      {format(new Date(a.at), 'dd.MM.yyyy HH:mm', { locale: ru })} ·{' '}
+                      {assigneePickerUsers.find((u) => u.id === a.userId)?.name ?? a.userId}
+                    </div>
+                    <p className="mt-1">{a.summary}</p>
+                  </div>
+                ))
+            )}
+          </TabsContent>
+        </Tabs>
+
+        <DialogFooter className="flex-col sm:flex-row gap-2 sm:justify-between sm:items-center">
+          <div className="flex flex-wrap gap-2 order-2 sm:order-1">
+            {isExistingTask && onSaveAsTemplate ? (
+              <Button type="button" variant="secondary" onClick={onSaveAsTemplate}>
+                Сохранить как шаблон
+              </Button>
+            ) : null}
+          </div>
+          <div className="flex gap-2 w-full sm:w-auto justify-end order-1 sm:order-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Отмена
+            </Button>
+            <Button onClick={handleSave}>
+              {isExistingTask ? 'Сохранить' : 'Создать'}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

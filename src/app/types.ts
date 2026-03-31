@@ -88,6 +88,32 @@ export interface CommunicationChannel {
   ownerUserId?: string;
 }
 
+export type TaskActivityAction =
+  | 'created'
+  | 'deadline_changed'
+  | 'assignees_changed'
+  | 'title_changed'
+  | 'completed'
+  | 'reopened'
+  | 'comment_added'
+  | 'bulk_changed'
+  | 'other';
+
+export interface TaskActivityEntry {
+  id: string;
+  at: string;
+  userId: string;
+  action: TaskActivityAction;
+  summary: string;
+}
+
+export interface TaskComment {
+  id: string;
+  authorUserId: string;
+  body: string;
+  createdAt: string;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -111,6 +137,51 @@ export interface Task {
   /** Площадка размещения (контент-план / блогеры) */
   socialPlatform?: ContentSocialPlatform;
   createdAt: string;
+  /** Последнее изменение (слияние при синхронизации) */
+  updatedAt?: string;
+  comments?: TaskComment[];
+  activity?: TaskActivityEntry[];
+}
+
+/** Шаблон задачи (общий для команды в payload) */
+export interface TaskTemplate {
+  id: string;
+  name: string;
+  createdAt: string;
+  /** Данные для новой задачи без служебных полей */
+  draft: Omit<
+    Task,
+    'id' | 'createdAt' | 'updatedAt' | 'completed' | 'completedAt' | 'comments' | 'activity'
+  >;
+}
+
+export type SavedViewScope = 'mediaplan' | 'archive';
+
+/** Сохранённый фильтр (синхронизируется в payload) */
+export interface SavedTaskView {
+  id: string;
+  name: string;
+  scope: SavedViewScope;
+  search: string;
+  /** Пустой массив — все категории */
+  categories: TaskCategory[];
+}
+
+/** Уведомления через webhook (N8N, Edge Function, Telegram Bot API через прокси и т.д.) */
+export interface NotificationSettings {
+  webhookUrl: string;
+  notifyOnAssign: boolean;
+  /** За сколько часов до дедлайна напомнить (null — отключено) */
+  notifyDeadlineHours: number | null;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  at: string;
+  userId: string;
+  userName: string;
+  action: string;
+  detail: string;
 }
 
 /** Встреча в планёре (недельная сетка); синхронизируется с остальным состоянием приложения */

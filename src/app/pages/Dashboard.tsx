@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useStore } from '../store';
 import { withoutGhostServiceUser } from '../constants/serviceAccount';
 import { TeamStats } from '../components/TeamStats';
@@ -16,9 +16,28 @@ import {
 } from '../utils/permissions';
 import { Badge } from '../components/ui/badge';
 
+const ONBOARDING_DISMISSED_KEY = 'mediaplanning_onboarding_dismissed';
+
 export default function Dashboard() {
   const { users, tasks, completedTasksLifetimeTotal, channels, currentUser, staffBlocks, jobPositions } =
     useStore();
+
+  const [onboardingVisible, setOnboardingVisible] = useState(() => {
+    try {
+      return localStorage.getItem(ONBOARDING_DISMISSED_KEY) !== '1';
+    } catch {
+      return false;
+    }
+  });
+
+  const dismissOnboarding = () => {
+    try {
+      localStorage.setItem(ONBOARDING_DISMISSED_KEY, '1');
+    } catch {
+      /* ignore */
+    }
+    setOnboardingVisible(false);
+  };
 
   // Фильтруем пользователей и задачи по правам доступа
   const visibleUsers = filterUsersByPermissions(users, currentUser, staffBlocks);
@@ -48,6 +67,36 @@ export default function Dashboard() {
         <h1 className="text-3xl font-bold text-gray-900">Дашборд</h1>
         <p className="text-gray-600 mt-2">Обзор медиапланирования и загруженности команды</p>
       </div>
+
+      {currentUser && onboardingVisible && canOpenArchive && (
+        <Card className="mb-6 border-primary/30 bg-primary/5">
+          <CardContent className="py-4">
+            <div className="flex flex-col sm:flex-row sm:items-start gap-3 justify-between">
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-foreground">Первые шаги для блока</p>
+                <p className="text-sm text-muted-foreground max-w-prose">
+                  В <Link className="text-primary underline-offset-4 hover:underline" to="/mediaplan">медиаплане</Link>{' '}
+                  включены поиск, сохранённые виды, шаблоны и массовый перенос дедлайнов. В{' '}
+                  <Link className="text-primary underline-offset-4 hover:underline" to="/account">аккаунте</Link> можно
+                  задать webhook для напоминаний. Используйте ⌘K (или кнопку поиска в шапке), чтобы быстро перейти к
+                  задаче или коллеге.
+                </p>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Button asChild size="sm">
+                    <Link to="/mediaplan">Открыть медиаплан</Link>
+                  </Button>
+                  <Button asChild size="sm" variant="outline">
+                    <Link to="/team">Команда</Link>
+                  </Button>
+                </div>
+              </div>
+              <Button variant="ghost" size="sm" className="shrink-0 text-muted-foreground" onClick={dismissOnboarding}>
+                Скрыть подсказку
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Информация о правах доступа */}
       {!seesAll && (

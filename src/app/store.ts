@@ -10,6 +10,11 @@ import {
   PermissionLevel,
   UserRole,
   roleBlocks,
+  NotificationSettings,
+  TaskTemplate,
+  SavedTaskView,
+  AuditLogEntry,
+  TaskActivityEntry,
 } from './types';
 import {
   addDays,
@@ -41,6 +46,14 @@ import {
   type RemoteStatePayload,
 } from './api/backend';
 import { archivedTaskPurgeAt } from './utils/archivePurge';
+import {
+  mergeTasksByUpdatedAt,
+  buildActivitiesOnPatch,
+  capTaskActivity,
+  appendAudit,
+  postOrgWebhook,
+  defaultNotificationSettings,
+} from './lib/taskWorkspace';
 
 /** Состояние синхронизации с Supabase (для индикатора в шапке) */
 export type CloudSyncStatus = 'off' | 'loading' | 'saving' | 'ready' | 'error';
@@ -57,6 +70,11 @@ const STORAGE_KEYS = {
   NOTIFICATIONS_SHOWN: 'mediaplanning_notifications_shown',
   CURRENT_USER: 'mediaplanning_current_user',
   PUSH_NOTIFICATIONS_ENABLED: 'mediaplanning_push_notifications_enabled',
+  NOTIFICATION_SETTINGS: 'mediaplanning_notification_settings',
+  TASK_TEMPLATES: 'mediaplanning_task_templates',
+  SAVED_TASK_VIEWS: 'mediaplanning_saved_task_views',
+  AUDIT_LOG: 'mediaplanning_audit_log',
+  ONBOARDING_DISMISSED: 'mediaplanning_onboarding_dismissed',
 };
 
 const SESSION_USER_KEY = 'mediaplanning_session_user';
@@ -1142,12 +1160,15 @@ function loadFromStorage<T>(key: string, defaultValue: T): T {
       }
       // Ensure backward compatibility for tasks
       if (key === STORAGE_KEYS.TASKS && Array.isArray(parsed)) {
-        const normalized = parsed.map((task: any) => ({
+        const normalized = parsed.map((task: Record<string, unknown>) => ({
           ...task,
           channels: task.channels || [],
           kpiType: task.kpiType || 'none',
           completed: Boolean(task.completed),
           completedAt: task.completedAt,
+          updatedAt: typeof task.updatedAt === 'string' ? task.updatedAt : undefined,
+          comments: Array.isArray(task.comments) ? task.comments : undefined,
+          activity: Array.isArray(task.activity) ? task.activity : undefined,
         }));
         return normalized as T;
       }
@@ -1264,6 +1285,9 @@ function normalizeTaskWire(raw: Record<string, unknown>): Task {
     completed: Boolean(raw.completed),
     completedAt: typeof raw.completedAt === 'string' ? raw.completedAt : undefined,
     socialPlatform,
+    updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : undefined,
+    comments: Array.isArray(raw.comments) ? (raw.comments as Task['comments']) : undefined,
+    activity: Array.isArray(raw.activity) ? (raw.activity as Task['activity']) : undefined,
   };
 }
 
@@ -1370,6 +1394,10 @@ function buildStatePayloadFromRemote(data: RemoteStatePayload): RemoteStatePaylo
     notificationsShown: notificationsNext,
     pushNotificationsEnabled: pushNext,
     completedTasksLifetimeTotal,
+    notificationSettings: data.notificationSettings ?? defaultNotificationSettings(),
+    taskTemplates: Array.isArray(data.taskTemplates) ? data.taskTemplates : [],
+    savedTaskViews: Array.isArray(data.savedTaskViews) ? data.savedTaskViews : [],
+    auditLog: Array.isArray(data.auditLog) ? data.auditLog.slice(-300) : [],
   };
 }
 
@@ -1450,6 +1478,18 @@ export function useStore() {
   const [pushNotificationsEnabled, setPushNotificationsEnabled] = useState<boolean>(() =>
     loadFromStorage<boolean>(STORAGE_KEYS.PUSH_NOTIFICATIONS_ENABLED, false)
   );
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(() =>
+    loadFromStorage(STORAGE_KEYS.NOTIFICATION_SETTINGS, defaultNotificationSettings()),
+  );
+  const [taskTemplates, setTaskTemplates] = useState<TaskTemplate[]>(() =>
+    loadFromStorage<TaskTemplate[]>(STORAGE_KEYS.TASK_TEMPLATES, []),
+  );
+  const [savedTaskViews, setSavedTaskViews] = useState<SavedTaskView[]>(() =>
+    loadFromStorage<SavedTaskView[]>(STORAGE_KEYS.SAVED_TASK_VIEWS, []),
+  );
+  const [auditLog, setAuditLog] = useState<AuditLogEntry[]>(() =>
+    loadFromStorage<AuditLogEntry[]>(STORAGE_KEYS.AUDIT_LOG, []),
+  );
   const [cloudSyncStatus, setCloudSyncStatus] = useState<CloudSyncStatus>('off');
 
   const lastWrittenRef = useRef<string | null>(null);
@@ -1463,6 +1503,8 @@ export function useStore() {
 
   const usersRef = useRef(users);
   usersRef.current = users;
+  const notificationSettingsRef = useRef(notificationSettings);
+  notificationSettingsRef.current = notificationSettings;
 
   /** Если в Supabase пустой users, сайт подставляет демо — их нужно один раз записать, чтобы мобильное приложение и БД совпадали. */
   const persistSeededPayloadIfServerWasEmpty = useCallback(async (raw: RemoteStatePayload, payload: RemoteStatePayload) => {
@@ -1486,7 +1528,7 @@ export function useStore() {
       await persistSeededPayloadIfServerWasEmpty(raw, payload);
       lastWrittenRef.current = snapshotState(payload);
       setUsers(payload.users);
-      setTasks(payload.tasks);
+      setTasks((prev) => mergeTasksByUpdatedAt(prev, payload.tasks));
       setChannels(payload.channels);
       setMeetings(payload.meetings);
       setStaffBlocks(payload.staffBlocks);
@@ -1494,6 +1536,10 @@ export function useStore() {
       setNotificationsShown(new Set(payload.notificationsShown));
       setPushNotificationsEnabled(payload.pushNotificationsEnabled);
       setCompletedTasksLifetimeTotal(payload.completedTasksLifetimeTotal);
+      setNotificationSettings(payload.notificationSettings);
+      setTaskTemplates(payload.taskTemplates);
+      setSavedTaskViews(payload.savedTaskViews);
+      setAuditLog(payload.auditLog);
       // При серверной синхронизации права и пароль текущего пользователя всегда берём из payload.
       setCurrentUser((prev) => {
         if (!prev) return prev;
@@ -1525,7 +1571,7 @@ export function useStore() {
           lastWrittenRef.current = snapshotState(payload);
           remoteHydratedRef.current = true;
           setUsers(payload.users);
-          setTasks(payload.tasks);
+          setTasks((prev) => mergeTasksByUpdatedAt(prev, payload.tasks));
           setChannels(payload.channels);
           setMeetings(payload.meetings);
           setStaffBlocks(payload.staffBlocks);
@@ -1533,6 +1579,10 @@ export function useStore() {
           setNotificationsShown(new Set(payload.notificationsShown));
           setPushNotificationsEnabled(payload.pushNotificationsEnabled);
           setCompletedTasksLifetimeTotal(payload.completedTasksLifetimeTotal);
+          setNotificationSettings(payload.notificationSettings);
+          setTaskTemplates(payload.taskTemplates);
+          setSavedTaskViews(payload.savedTaskViews);
+          setAuditLog(payload.auditLog);
           setCloudSyncStatus('ready');
           return payload.users.find((u) => credentialsMatch(u, trimmed, password)) ?? null;
         }
@@ -1635,6 +1685,26 @@ export function useStore() {
     localStorage.setItem(STORAGE_KEYS.PUSH_NOTIFICATIONS_ENABLED, JSON.stringify(pushNotificationsEnabled));
   }, [pushNotificationsEnabled, currentUser]);
 
+  useEffect(() => {
+    if (!currentUser) return;
+    localStorage.setItem(STORAGE_KEYS.NOTIFICATION_SETTINGS, JSON.stringify(notificationSettings));
+  }, [notificationSettings, currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    localStorage.setItem(STORAGE_KEYS.TASK_TEMPLATES, JSON.stringify(taskTemplates));
+  }, [taskTemplates, currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    localStorage.setItem(STORAGE_KEYS.SAVED_TASK_VIEWS, JSON.stringify(savedTaskViews));
+  }, [savedTaskViews, currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    localStorage.setItem(STORAGE_KEYS.AUDIT_LOG, JSON.stringify(auditLog));
+  }, [auditLog, currentUser]);
+
   // Актуальный снимок для дозаписи при уходе со страницы
   useEffect(() => {
     if (!currentUser) {
@@ -1651,6 +1721,10 @@ export function useStore() {
       notificationsShown: [...notificationsShown],
       pushNotificationsEnabled,
       completedTasksLifetimeTotal,
+      notificationSettings,
+      taskTemplates,
+      savedTaskViews,
+      auditLog,
     };
   }, [
     users,
@@ -1662,6 +1736,10 @@ export function useStore() {
     notificationsShown,
     pushNotificationsEnabled,
     completedTasksLifetimeTotal,
+    notificationSettings,
+    taskTemplates,
+    savedTaskViews,
+    auditLog,
     currentUser,
   ]);
 
@@ -1702,6 +1780,10 @@ export function useStore() {
       notificationsShown: [...notificationsShown],
       pushNotificationsEnabled,
       completedTasksLifetimeTotal,
+      notificationSettings,
+      taskTemplates,
+      savedTaskViews,
+      auditLog,
     };
     const snap = snapshotState(payload);
     if (lastWrittenRef.current === snap) return;
@@ -1734,6 +1816,10 @@ export function useStore() {
     notificationsShown,
     pushNotificationsEnabled,
     completedTasksLifetimeTotal,
+    notificationSettings,
+    taskTemplates,
+    savedTaskViews,
+    auditLog,
     currentUser,
   ]);
 
@@ -1767,6 +1853,59 @@ export function useStore() {
     const id = setInterval(purgeArchived, 60_000);
     return () => clearInterval(id);
   }, []);
+
+  /** Webhook: напоминание о дедлайне за N часов (один раз на задачу за сессию вкладки). */
+  useEffect(() => {
+    const url = notificationSettings.webhookUrl.trim();
+    const hours = notificationSettings.notifyDeadlineHours;
+    if (!url || hours == null || hours <= 0) return;
+
+    const storageKey = 'mediaplanning_deadline_webhook_sent';
+    const readSent = (): Record<string, number> => {
+      try {
+        const raw = sessionStorage.getItem(storageKey);
+        if (!raw) return {};
+        const o = JSON.parse(raw) as unknown;
+        return typeof o === 'object' && o !== null ? (o as Record<string, number>) : {};
+      } catch {
+        return {};
+      }
+    };
+
+    const tick = () => {
+      const now = Date.now();
+      const windowMs = hours * 3600 * 1000;
+      const sent = readSent();
+      let changed = false;
+      for (const t of tasks) {
+        if (t.completed || !t.deadline) continue;
+        const d = new Date(t.deadline).getTime();
+        if (Number.isNaN(d) || d <= now || d > now + windowMs) continue;
+        const prevAt = sent[t.id] ?? 0;
+        if (prevAt && now - prevAt < 50 * 60 * 1000) continue;
+        sent[t.id] = now;
+        changed = true;
+        void postOrgWebhook(url, {
+          type: 'deadline_soon',
+          hours,
+          taskId: t.id,
+          title: t.title,
+          deadline: t.deadline,
+        });
+      }
+      if (changed) {
+        const keys = Object.keys(sent);
+        if (keys.length > 400) {
+          for (const k of keys.slice(0, keys.length - 400)) delete sent[k];
+        }
+        sessionStorage.setItem(storageKey, JSON.stringify(sent));
+      }
+    };
+
+    tick();
+    const id = setInterval(tick, 120_000);
+    return () => clearInterval(id);
+  }, [tasks, notificationSettings.webhookUrl, notificationSettings.notifyDeadlineHours]);
 
   const showReminderNotification = (title: string, description: string, notificationKey: string) => {
     // Уведомления через SW: отправляем сообщение в worker, а он вызывает showNotification.
@@ -1944,12 +2083,47 @@ export function useStore() {
   };
 
   const addTask = (task: Omit<Task, 'id' | 'createdAt'>) => {
+    const now = new Date().toISOString();
+    const uid = currentUser?.id ?? 'unknown';
     const newTask: Task = {
       ...task,
       id: Date.now().toString(),
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
+      comments: undefined,
+      activity: capTaskActivity([
+        {
+          id: `${now}-created`,
+          at: now,
+          userId: uid,
+          action: 'created',
+          summary: 'Задача создана',
+        },
+      ]),
     };
     setTasks((prev) => [...prev, newTask]);
+    if (currentUser) {
+      queueMicrotask(() => {
+        setAuditLog((a) =>
+          appendAudit(a, {
+            at: now,
+            userId: currentUser.id,
+            userName: currentUser.name,
+            action: 'task.create',
+            detail: newTask.title,
+          }),
+        );
+      });
+      const ns = notificationSettingsRef.current;
+      if (ns.notifyOnAssign && ns.webhookUrl.trim()) {
+        void postOrgWebhook(ns.webhookUrl, {
+          type: 'task_assigned',
+          taskId: newTask.id,
+          title: newTask.title,
+          assignees: newTask.assignees,
+        });
+      }
+    }
     return newTask;
   };
 
@@ -1957,13 +2131,41 @@ export function useStore() {
     setTasks((prev) => {
       const t = prev.find((x) => x.id === taskId);
       if (!t) return prev;
-      const merged = { ...t, ...updates };
+      const now = new Date().toISOString();
+      const uid = currentUser?.id ?? 'unknown';
+      const merged: Task = { ...t, ...updates, updatedAt: now };
+      const acts = buildActivitiesOnPatch(t, updates, uid);
+      if (acts.length) {
+        merged.activity = capTaskActivity([...(t.activity ?? []), ...acts]);
+      }
       const was = Boolean(t.completed);
-      const now = Boolean(merged.completed);
-      const d = !was && now ? 1 : was && !now ? -1 : 0;
+      const nowC = Boolean(merged.completed);
+      const d = !was && nowC ? 1 : was && !nowC ? -1 : 0;
       if (d !== 0) {
         queueMicrotask(() => {
           setCompletedTasksLifetimeTotal((c) => Math.max(0, c + d));
+        });
+      }
+      if (acts.length && currentUser) {
+        queueMicrotask(() => {
+          setAuditLog((a) =>
+            appendAudit(a, {
+              at: now,
+              userId: currentUser.id,
+              userName: currentUser.name,
+              action: 'task.update',
+              detail: `${merged.title}: ${acts.map((x) => x.summary).join('; ')}`,
+            }),
+          );
+        });
+      }
+      const ns = notificationSettingsRef.current;
+      if (acts.some((x) => x.action === 'assignees_changed') && ns.notifyOnAssign && ns.webhookUrl.trim()) {
+        void postOrgWebhook(ns.webhookUrl, {
+          type: 'task_reassigned',
+          taskId,
+          title: merged.title,
+          assignees: merged.assignees,
         });
       }
       return prev.map((x) => (x.id === taskId ? merged : x));
@@ -1971,7 +2173,158 @@ export function useStore() {
   };
 
   const deleteTask = (taskId: string) => {
-    setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    let title = taskId;
+    setTasks((prev) => {
+      const t = prev.find((x) => x.id === taskId);
+      if (t) title = t.title;
+      return prev.filter((x) => x.id !== taskId);
+    });
+    if (currentUser) {
+      const at = new Date().toISOString();
+      queueMicrotask(() => {
+        setAuditLog((a) =>
+          appendAudit(a, {
+            at,
+            userId: currentUser.id,
+            userName: currentUser.name,
+            action: 'task.delete',
+            detail: title,
+          }),
+        );
+      });
+    }
+  };
+
+  const addTaskComment = (taskId: string, body: string) => {
+    if (!currentUser || !body.trim()) return;
+    const now = new Date().toISOString();
+    const uid = currentUser.id;
+    const comment = {
+      id: `${Date.now()}-c`,
+      authorUserId: uid,
+      body: body.trim(),
+      createdAt: now,
+    };
+    const act: TaskActivityEntry = {
+      id: `${now}-cc`,
+      at: now,
+      userId: uid,
+      action: 'comment_added',
+      summary: 'Добавлен комментарий',
+    };
+    setTasks((prev) =>
+      prev.map((t) => {
+        if (t.id !== taskId) return t;
+        return {
+          ...t,
+          updatedAt: now,
+          comments: [...(t.comments ?? []), comment].slice(-100),
+          activity: capTaskActivity([...(t.activity ?? []), act]),
+        };
+      }),
+    );
+  };
+
+  const updateNotificationSettings = (patch: Partial<NotificationSettings>) => {
+    setNotificationSettings((s) => ({ ...s, ...patch }));
+  };
+
+  const addTaskTemplate = (name: string, draft: TaskTemplate['draft']) => {
+    const row: TaskTemplate = {
+      id: `tpl-${Date.now()}`,
+      name: name.trim() || 'Шаблон',
+      createdAt: new Date().toISOString(),
+      draft,
+    };
+    setTaskTemplates((prev) => [...prev, row]);
+    return row;
+  };
+
+  const removeTaskTemplate = (templateId: string) => {
+    setTaskTemplates((prev) => prev.filter((x) => x.id !== templateId));
+  };
+
+  const addSavedTaskView = (view: Omit<SavedTaskView, 'id'>) => {
+    const row: SavedTaskView = { ...view, id: `view-${Date.now()}` };
+    setSavedTaskViews((prev) => [...prev, row]);
+    return row;
+  };
+
+  const removeSavedTaskView = (viewId: string) => {
+    setSavedTaskViews((prev) => prev.filter((v) => v.id !== viewId));
+  };
+
+  const bulkShiftDeadlines = (taskIds: string[], days: number) => {
+    if (!days || !taskIds.length) return;
+    const idSet = new Set(taskIds);
+    const now = new Date().toISOString();
+    const uid = currentUser?.id ?? 'unknown';
+    setTasks((prev) =>
+      prev.map((t) => {
+        if (!idSet.has(t.id) || !t.deadline) return t;
+        const d = new Date(t.deadline);
+        d.setDate(d.getDate() + days);
+        const newDl = d.toISOString();
+        const patchActs = buildActivitiesOnPatch(t, { deadline: newDl }, uid);
+        const bulkAct: TaskActivityEntry = {
+          id: `${Date.now()}-bulk`,
+          at: now,
+          userId: uid,
+          action: 'bulk_changed',
+          summary: `Массовый сдвиг дедлайна на ${days} дн.`,
+        };
+        const actsOut = patchActs.length ? patchActs : [bulkAct];
+        return {
+          ...t,
+          deadline: newDl,
+          updatedAt: now,
+          activity: capTaskActivity([...(t.activity ?? []), ...actsOut]),
+        };
+      }),
+    );
+    if (currentUser) {
+      setAuditLog((a) =>
+        appendAudit(a, {
+          at: now,
+          userId: currentUser.id,
+          userName: currentUser.name,
+          action: 'task.bulk_deadline',
+          detail: `${taskIds.length} задач, ${days} дн.`,
+        }),
+      );
+    }
+  };
+
+  /** Массово добавить второго исполнителя ко всем выбранным задачам (не удаляя текущих). */
+  const bulkAddAssignee = (taskIds: string[], userId: string) => {
+    if (!taskIds.length || !userId) return;
+    const idSet = new Set(taskIds);
+    const now = new Date().toISOString();
+    const uid = currentUser?.id ?? 'unknown';
+    setTasks((prev) =>
+      prev.map((t) => {
+        if (!idSet.has(t.id) || t.assignees.includes(userId)) return t;
+        const nextAssignees = [...t.assignees, userId];
+        const acts = buildActivitiesOnPatch(t, { assignees: nextAssignees }, uid);
+        return {
+          ...t,
+          assignees: nextAssignees,
+          updatedAt: now,
+          activity: acts.length ? capTaskActivity([...(t.activity ?? []), ...acts]) : t.activity,
+        };
+      }),
+    );
+    if (currentUser) {
+      setAuditLog((a) =>
+        appendAudit(a, {
+          at: now,
+          userId: currentUser.id,
+          userName: currentUser.name,
+          action: 'task.bulk_assignee',
+          detail: `${taskIds.length} задач, +user ${userId}`,
+        }),
+      );
+    }
   };
 
   const addMeeting = (input: Omit<Meeting, 'id' | 'createdAt' | 'createdBy'>) => {
@@ -2140,6 +2493,10 @@ export function useStore() {
     users,
     tasks,
     completedTasksLifetimeTotal,
+    notificationSettings,
+    taskTemplates,
+    savedTaskViews,
+    auditLog,
     channels,
     meetings,
     staffBlocks,
@@ -2153,6 +2510,14 @@ export function useStore() {
     addTask,
     updateTask,
     deleteTask,
+    addTaskComment,
+    updateNotificationSettings,
+    addTaskTemplate,
+    removeTaskTemplate,
+    addSavedTaskView,
+    removeSavedTaskView,
+    bulkShiftDeadlines,
+    bulkAddAssignee,
     getTasksForDate,
     getCalendarTasksForDate,
     addStaffBlock,

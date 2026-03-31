@@ -1,9 +1,36 @@
-/* Service Worker for reminder notifications.
+/* Service Worker for reminder notifications + лёгкий офлайн-шелл.
  *
  * Limitation: this improves reliability of in-app reminders while the browser is active,
  * but it is not a full "real" Web Push implementation without a backend (VAPID) that
  * can deliver push messages while the user is away.
+ *
+ * Кэш: при сетевой ошибке на навигации отдаём сохранённый index.html (Vite SPA).
  */
+
+const SHELL_CACHE = 'mediaplan-shell-v1';
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches
+      .open(SHELL_CACHE)
+      .then((cache) => cache.addAll(['./', './index.html']).catch(() => {}))
+      .then(() => self.skipWaiting()),
+  );
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim());
+});
+
+self.addEventListener('fetch', (event) => {
+  if (event.request.mode !== 'navigate') return;
+  event.respondWith(
+    fetch(event.request).catch(async () => {
+      const cached = await caches.match('./index.html');
+      return cached ?? Response.error();
+    }),
+  );
+});
 
 self.addEventListener('message', (event) => {
   const data = event.data;

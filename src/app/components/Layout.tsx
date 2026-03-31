@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useTheme } from 'next-themes';
 import { Outlet, useLocation, useNavigate, NavLink } from 'react-router';
 import { useStore, type CloudSyncStatus } from '../store';
+import { CommandPalette } from './CommandPalette';
 import { isRemoteSyncConfigured } from '../api/backend';
 import { Button } from './ui/button';
 import {
@@ -20,6 +22,9 @@ import {
   BarChart3,
   MessageSquare,
   GraduationCap,
+  Moon,
+  Sun,
+  Search,
 } from 'lucide-react';
 import { permissionLabels, displayTaskTypeLabel } from '../types';
 import { toast } from 'sonner';
@@ -79,7 +84,7 @@ function CloudSyncIndicator({ status }: { status: CloudSyncStatus }) {
   const { Icon, className, hint } = cfg;
   return (
     <span
-      className="hidden sm:inline-flex items-center rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 shrink-0"
+      className="hidden sm:inline-flex items-center rounded-md border border-border bg-card px-2 py-1 text-xs text-muted-foreground shrink-0"
       title={hint}
     >
       <Icon className={cn('h-3.5 w-3.5 sm:mr-1.5', className)} aria-hidden />
@@ -98,6 +103,7 @@ function CloudSyncIndicator({ status }: { status: CloudSyncStatus }) {
 }
 
 export default function Layout() {
+  const { theme, setTheme, resolvedTheme } = useTheme();
   const { currentUser, jobPositions, staffBlocks, setCurrentUser, cloudSyncStatus } = useStore();
   const location = useLocation();
   const navigate = useNavigate();
@@ -157,13 +163,18 @@ export default function Layout() {
     cn(
       'inline-flex items-center border-b-2 pb-2 text-sm font-medium transition-colors shrink-0',
       isActive
-        ? 'border-blue-600 text-gray-900'
-        : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-800',
+        ? 'border-primary text-foreground'
+        : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground',
     );
 
+  const toggleTheme = () => {
+    setTheme(resolvedTheme === 'dark' ? 'light' : 'dark');
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm border-b">
+    <div className="min-h-screen bg-background text-foreground">
+      <CommandPalette />
+      <nav className="bg-card shadow-sm border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Строка 1: мобильное меню, название, облако, профиль */}
           <div className="flex justify-between items-center gap-3 py-3 min-h-14">
@@ -262,11 +273,37 @@ export default function Layout() {
                   </p>
                 </SheetContent>
               </Sheet>
-              <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate min-w-0">
+              <h1 className="text-lg sm:text-xl font-bold text-foreground truncate min-w-0">
                 Медиапланирование
               </h1>
             </div>
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              {currentUser && (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="shrink-0 h-9 w-9"
+                    aria-label="Поиск"
+                    title="Поиск (⌘K)"
+                    onClick={() => window.dispatchEvent(new Event('open-command-palette'))}
+                  >
+                    <Search className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="shrink-0 h-9 w-9"
+                    aria-label="Тема"
+                    onClick={toggleTheme}
+                    title={theme === 'system' ? 'Тема: как в системе' : theme === 'dark' ? 'Тёмная' : 'Светлая'}
+                  >
+                    {resolvedTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                  </Button>
+                </>
+              )}
               {currentUser && isRemoteSyncConfigured() && (
                 <CloudSyncIndicator status={cloudSyncStatus} />
               )}
@@ -276,11 +313,11 @@ export default function Layout() {
                     className="text-xs sm:text-sm text-right min-w-0 max-w-[9rem] sm:max-w-[12rem] md:max-w-[15rem]"
                     title={`${currentUser.name} · ${displayTaskTypeLabel(currentUser, jobPositions)} · ${permissionLabels[currentUser.permissionLevel]}`}
                   >
-                    <div className="font-medium text-gray-900 truncate">{currentUser.name}</div>
-                    <div className="text-gray-500 truncate hidden sm:block text-xs">
+                    <div className="font-medium text-foreground truncate">{currentUser.name}</div>
+                    <div className="text-muted-foreground truncate hidden sm:block text-xs">
                       {displayTaskTypeLabel(currentUser, jobPositions)}
                     </div>
-                    <div className="text-[10px] sm:text-xs text-gray-400 truncate">
+                    <div className="text-[10px] sm:text-xs text-muted-foreground/80 truncate">
                       {permissionLabels[currentUser.permissionLevel]}
                     </div>
                   </div>
@@ -294,7 +331,7 @@ export default function Layout() {
           </div>
 
           {/* Строка 2 (desktop): основные разделы + команда/архив/аккаунт */}
-          <div className="hidden md:flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-slate-100 py-2.5">
+          <div className="hidden md:flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-border py-2.5">
             {navigationDesktop.map((item) => {
               const Icon = item.icon;
               return (
@@ -308,7 +345,7 @@ export default function Layout() {
         </div>
       </nav>
 
-      <main className="min-h-[calc(100vh-7rem)] md:min-h-[calc(100vh-11rem)] border-t border-slate-100/80 bg-slate-50/50">
+      <main className="min-h-[calc(100vh-7rem)] md:min-h-[calc(100vh-11rem)] border-t border-border/80 bg-muted/30">
         <Outlet />
       </main>
     </div>
