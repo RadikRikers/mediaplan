@@ -22,36 +22,47 @@ export function taskRevisionTime(t: Task): number {
   return Date.parse(t.createdAt) || 0;
 }
 
-/** Слияние списков задач по updatedAt (при равенстве — объединяем комментарии и историю). */
-export function mergeTasksByUpdatedAt(local: Task[], remote: Task[]): Task[] {
+export type MergeTasksOptions = {
+  /**
+   * Если в Supabase уже был непустой список задач, не добавляем локальные id, которых нет на сервере
+   * (считаем, что задачу удалили на другом устройстве).
+   */
+  dropLocalOrphans?: boolean;
+};
+
+/** Слияние списков задач по updatedAt; при равенстве ревизий приоритет у сервера (поля), комментарии/история — из обеих копий. */
+export function mergeTasksByUpdatedAt(local: Task[], remote: Task[], options?: MergeTasksOptions): Task[] {
+  const dropOrphans = options?.dropLocalOrphans === true;
   const map = new Map<string, Task>();
   for (const t of remote) map.set(t.id, t);
   for (const t of local) {
     const r = map.get(t.id);
     if (!r) {
-      map.set(t.id, t);
+      if (!dropOrphans) map.set(t.id, t);
       continue;
     }
     const lt = taskRevisionTime(t);
     const rt = taskRevisionTime(r);
     if (lt > rt) map.set(t.id, t);
     else if (lt < rt) map.set(t.id, r);
-    else map.set(t.id, mergeTasksSameRevision(t, r));
+    else map.set(t.id, mergeTasksSameRevision(r, t));
   }
   return [...map.values()];
 }
 
-function mergeTasksSameRevision(a: Task, b: Task): Task {
-  const base = taskRevisionTime(a) >= taskRevisionTime(b) ? a : b;
-  const cmerge = [...(a.comments ?? []), ...(b.comments ?? [])].sort((x, y) =>
+/** primary — источник полей задачи; secondary — только для объединения комментариев и истории. */
+function mergeTasksSameRevision(primary: Task, secondary: Task): Task {
+  const cmerge = [...(primary.comments ?? []), ...(secondary.comments ?? [])].sort((x, y) =>
     x.createdAt.localeCompare(y.createdAt),
   );
   const cSeen = new Set<string>();
   const comments = cmerge.filter((c) => (cSeen.has(c.id) ? false : (cSeen.add(c.id), true))).slice(-200);
-  const amerge = [...(a.activity ?? []), ...(b.activity ?? [])].sort((x, y) => x.at.localeCompare(y.at));
+  const amerge = [...(primary.activity ?? []), ...(secondary.activity ?? [])].sort((x, y) =>
+    x.at.localeCompare(y.at),
+  );
   const aSeen = new Set<string>();
   const activity = amerge.filter((x) => (aSeen.has(x.id) ? false : (aSeen.add(x.id), true))).slice(-MAX_ACTIVITY);
-  return { ...base, comments, activity };
+  return { ...primary, comments, activity };
 }
 
 export function capTaskActivity(list: TaskActivityEntry[] | undefined): TaskActivityEntry[] {

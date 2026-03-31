@@ -1328,7 +1328,11 @@ function credentialsMatch(user: User, nameInput: string, passwordInput: string):
   return nameOk && passOk;
 }
 
-function buildStatePayloadFromRemote(data: RemoteStatePayload): RemoteStatePayload {
+function buildStatePayloadFromRemote(data: RemoteStatePayload): {
+  payload: RemoteStatePayload;
+  /** В JSON из БД был непустой массив tasks (до подстановки демо-seed). */
+  serverHadTaskList: boolean;
+} {
   const u = data.users;
   let usersNext: User[];
   if (!Array.isArray(u)) {
@@ -1341,6 +1345,7 @@ function buildStatePayloadFromRemote(data: RemoteStatePayload): RemoteStatePaylo
   }
 
   const tasksRaw = Array.isArray(data.tasks) ? data.tasks : [];
+  const serverHadTaskList = tasksRaw.length > 0;
   let tasksNext = tasksRaw.map((t) => normalizeTaskWire(t as unknown as Record<string, unknown>));
   // Если на сервере пока пусто — показываем локальный seed.
   if (tasksNext.length === 0) tasksNext = [...initialTasks];
@@ -1385,19 +1390,22 @@ function buildStatePayloadFromRemote(data: RemoteStatePayload): RemoteStatePaylo
   const completedTasksLifetimeTotal = Math.max(fromRemote, completedInTasks);
 
   return {
-    users: usersNext,
-    tasks: tasksNext,
-    channels: channelsNext,
-    meetings: meetingsNext,
-    staffBlocks,
-    jobPositions,
-    notificationsShown: notificationsNext,
-    pushNotificationsEnabled: pushNext,
-    completedTasksLifetimeTotal,
-    notificationSettings: data.notificationSettings ?? defaultNotificationSettings(),
-    taskTemplates: Array.isArray(data.taskTemplates) ? data.taskTemplates : [],
-    savedTaskViews: Array.isArray(data.savedTaskViews) ? data.savedTaskViews : [],
-    auditLog: Array.isArray(data.auditLog) ? data.auditLog.slice(-300) : [],
+    payload: {
+      users: usersNext,
+      tasks: tasksNext,
+      channels: channelsNext,
+      meetings: meetingsNext,
+      staffBlocks,
+      jobPositions,
+      notificationsShown: notificationsNext,
+      pushNotificationsEnabled: pushNext,
+      completedTasksLifetimeTotal,
+      notificationSettings: data.notificationSettings ?? defaultNotificationSettings(),
+      taskTemplates: Array.isArray(data.taskTemplates) ? data.taskTemplates : [],
+      savedTaskViews: Array.isArray(data.savedTaskViews) ? data.savedTaskViews : [],
+      auditLog: Array.isArray(data.auditLog) ? data.auditLog.slice(-300) : [],
+    },
+    serverHadTaskList,
   };
 }
 
@@ -1524,11 +1532,13 @@ export function useStore() {
     setCloudSyncStatus('loading');
     try {
       const raw = await fetchRemoteState();
-      const payload = buildStatePayloadFromRemote(raw);
+      const { payload, serverHadTaskList } = buildStatePayloadFromRemote(raw);
       await persistSeededPayloadIfServerWasEmpty(raw, payload);
       lastWrittenRef.current = snapshotState(payload);
       setUsers(payload.users);
-      setTasks((prev) => mergeTasksByUpdatedAt(prev, payload.tasks));
+      setTasks((prev) =>
+        mergeTasksByUpdatedAt(prev, payload.tasks, { dropLocalOrphans: serverHadTaskList }),
+      );
       setChannels(payload.channels);
       setMeetings(payload.meetings);
       setStaffBlocks(payload.staffBlocks);
@@ -1566,12 +1576,14 @@ export function useStore() {
         if (isRemoteSyncConfigured()) {
           setCloudSyncStatus('loading');
           const raw = await fetchRemoteState();
-          const payload = buildStatePayloadFromRemote(raw);
+          const { payload, serverHadTaskList } = buildStatePayloadFromRemote(raw);
           await persistSeededPayloadIfServerWasEmpty(raw, payload);
           lastWrittenRef.current = snapshotState(payload);
           remoteHydratedRef.current = true;
           setUsers(payload.users);
-          setTasks((prev) => mergeTasksByUpdatedAt(prev, payload.tasks));
+          setTasks((prev) =>
+            mergeTasksByUpdatedAt(prev, payload.tasks, { dropLocalOrphans: serverHadTaskList }),
+          );
           setChannels(payload.channels);
           setMeetings(payload.meetings);
           setStaffBlocks(payload.staffBlocks);
