@@ -1,22 +1,16 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { isSupabaseConfigured, resolveSupabaseAnonKey, resolveSupabaseUrl } from './supabaseConfig';
+
+export { isSupabaseConfigured } from './supabaseConfig';
 
 let client: SupabaseClient | null = null;
 
-export function isSupabaseConfigured(): boolean {
-  const url = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim();
-  const key = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim();
-  return Boolean(url && key);
-}
-
 export function getSupabase(): SupabaseClient {
   if (!isSupabaseConfigured()) {
-    throw new Error('VITE_SUPABASE_URL и VITE_SUPABASE_ANON_KEY не заданы в .env');
+    throw new Error('Supabase URL и ключ не заданы (ни в .env, ни встроенные в supabaseConfig.ts)');
   }
   if (!client) {
-    client = createClient(
-      import.meta.env.VITE_SUPABASE_URL as string,
-      import.meta.env.VITE_SUPABASE_ANON_KEY as string,
-    );
+    client = createClient(resolveSupabaseUrl(), resolveSupabaseAnonKey());
   }
   return client;
 }

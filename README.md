@@ -9,7 +9,7 @@ npm install
 npm run dev
 ```
 
-Создайте файл **`.env`** по образцу **`.env.example`** (ключи Supabase), иначе данные будут только в браузере (`localStorage`).
+Облако **включено по умолчанию**: URL и anon key проекта заданы в **`src/lib/supabaseConfig.ts`** (тот же Supabase, что в iOS `Secrets.plist`). Файл **`.env`** нужен только чтобы подставить другой проект — см. **`.env.example`**.
 
 ## Сборка
 
@@ -23,8 +23,7 @@ npm run build
 
 1. Проект на [supabase.com](https://supabase.com) → **SQL Editor** → выполните скрипт из  
    `supabase/migrations/001_mediaplan_app_state.sql`
-2. **Settings → API**: скопируйте **Project URL** и **anon public** key в `.env` как  
-   `VITE_SUPABASE_URL` и `VITE_SUPABASE_ANON_KEY`
+2. **Settings → API**: при необходимости обновите в **`src/lib/supabaseConfig.ts`** (или задайте те же значения в `.env` — они перекрывают встроенные).
 3. `npm run build` и раздавайте `dist/` любым статическим хостингом (Netlify, Vercel, Cloudflare Pages, S3 и т.д.).
 
 Подробнее: **`deploy-supabase.txt`**
