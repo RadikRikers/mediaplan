@@ -8,7 +8,12 @@ import {
   StaffBlock,
 } from '../types';
 import { SERVICE_USER_ID, isServiceAccount } from '../constants/serviceAccount';
-import { MEDIA_ROOT_ID } from '../constants/staffBlockIds';
+import {
+  MEDIA_ROOT_ID,
+  ANALYTICS_BLOCK_ID,
+  FEEDBACK_BLOCK_ID,
+  LEARNING_DEPT_BLOCK_ID,
+} from '../constants/staffBlockIds';
 
 /** Полные права: сервис и учётки с уровнем full — структура организации, все данные */
 export function hasOrgFullAccess(user: User | null): boolean {
@@ -43,14 +48,83 @@ export function isMediaOrgStaffMember(user: User | null, staffBlocks: StaffBlock
   return false;
 }
 
-/**
- * Разделы «Аналитика», «Обратная связь», «Обучение»: сервис, общее руководство или медиаблок (подразделения).
- */
-export function canAccessInsightsHub(user: User | null, staffBlocks: StaffBlock[]): boolean {
+/** Пользователь в блоке `rootBlockId` или в подразделении (подъём по parentBlockId). */
+export function isUserUnderStaffBlockRoot(
+  user: User | null,
+  staffBlocks: StaffBlock[],
+  rootBlockId: string,
+): boolean {
+  if (!user?.blockId) return false;
+
+  let id: string | null | undefined = user.blockId;
+  const seen = new Set<string>();
+  while (id && !seen.has(id)) {
+    seen.add(id);
+    if (id === rootBlockId) return true;
+    const block = staffBlocks.find((b) => b.id === id);
+    id = block?.parentBlockId ?? null;
+  }
+  return false;
+}
+
+export function isAnalyticsDepartmentStaff(user: User | null, staffBlocks: StaffBlock[]): boolean {
+  return isUserUnderStaffBlockRoot(user, staffBlocks, ANALYTICS_BLOCK_ID);
+}
+
+export function isFeedbackDepartmentStaff(user: User | null, staffBlocks: StaffBlock[]): boolean {
+  return isUserUnderStaffBlockRoot(user, staffBlocks, FEEDBACK_BLOCK_ID);
+}
+
+export function isLearningDepartmentStaff(user: User | null, staffBlocks: StaffBlock[]): boolean {
+  return isUserUnderStaffBlockRoot(user, staffBlocks, LEARNING_DEPT_BLOCK_ID);
+}
+
+export function isSpecialtyInsightsDepartmentStaff(user: User | null, staffBlocks: StaffBlock[]): boolean {
+  return (
+    isAnalyticsDepartmentStaff(user, staffBlocks) ||
+    isFeedbackDepartmentStaff(user, staffBlocks) ||
+    isLearningDepartmentStaff(user, staffBlocks)
+  );
+}
+
+function isElevatedOrgNavUser(user: User | null, staffBlocks: StaffBlock[]): boolean {
   if (!user) return false;
-  if (isServiceAccount(user)) return true;
-  if (hasLeadershipScope(user, staffBlocks)) return true;
+  return isServiceAccount(user) || hasLeadershipScope(user, staffBlocks);
+}
+
+/** Медиаплан, контент-план, архив: медиаблок, руководство или сервис (не отделы аналитики / ОС / обучения). */
+export function canAccessMediaWorkloadNav(user: User | null, staffBlocks: StaffBlock[]): boolean {
+  if (!user) return false;
+  if (isElevatedOrgNavUser(user, staffBlocks)) return true;
+  if (isSpecialtyInsightsDepartmentStaff(user, staffBlocks)) return false;
   return isMediaOrgStaffMember(user, staffBlocks);
+}
+
+export function canAccessAnalyticsSection(user: User | null, staffBlocks: StaffBlock[]): boolean {
+  if (!user) return false;
+  if (isElevatedOrgNavUser(user, staffBlocks)) return true;
+  return isAnalyticsDepartmentStaff(user, staffBlocks);
+}
+
+export function canAccessFeedbackSection(user: User | null, staffBlocks: StaffBlock[]): boolean {
+  if (!user) return false;
+  if (isElevatedOrgNavUser(user, staffBlocks)) return true;
+  return isFeedbackDepartmentStaff(user, staffBlocks);
+}
+
+export function canAccessLearningSection(user: User | null, staffBlocks: StaffBlock[]): boolean {
+  if (!user) return false;
+  if (isElevatedOrgNavUser(user, staffBlocks)) return true;
+  return isLearningDepartmentStaff(user, staffBlocks);
+}
+
+/** Доступ к любому из трёх разделов (например для проверки «есть ли куда редиректить»). */
+export function canAccessAnyInsightsSection(user: User | null, staffBlocks: StaffBlock[]): boolean {
+  return (
+    canAccessAnalyticsSection(user, staffBlocks) ||
+    canAccessFeedbackSection(user, staffBlocks) ||
+    canAccessLearningSection(user, staffBlocks)
+  );
 }
 
 /** @deprecated используйте hasBroadAccess — то же поведение для задач/команды */

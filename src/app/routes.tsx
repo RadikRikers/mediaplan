@@ -3,7 +3,12 @@ import { createHashRouter, Navigate } from 'react-router';
 import { useStore } from './store';
 import Layout from './components/Layout';
 import { Skeleton } from './components/ui/skeleton';
-import { canAccessInsightsHub } from './utils/permissions';
+import {
+  canAccessMediaWorkloadNav,
+  canAccessAnalyticsSection,
+  canAccessFeedbackSection,
+  canAccessLearningSection,
+} from './utils/permissions';
 
 const Login = lazy(() => import('./pages/Login'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -41,13 +46,52 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function InsightsProtectedRoute({ children }: { children: React.ReactNode }) {
+function MediaWorkloadProtectedRoute({ children }: { children: React.ReactNode }) {
   const { currentUser, staffBlocks } = useStore();
 
   if (!currentUser) {
     return <Navigate to="/login" replace />;
   }
-  if (!canAccessInsightsHub(currentUser, staffBlocks)) {
+  if (!canAccessMediaWorkloadNav(currentUser, staffBlocks)) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+}
+
+function AnalyticsSectionRoute({ children }: { children: React.ReactNode }) {
+  const { currentUser, staffBlocks } = useStore();
+
+  if (!currentUser) {
+    return <Navigate to="/login" replace />;
+  }
+  if (!canAccessAnalyticsSection(currentUser, staffBlocks)) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+}
+
+function FeedbackSectionRoute({ children }: { children: React.ReactNode }) {
+  const { currentUser, staffBlocks } = useStore();
+
+  if (!currentUser) {
+    return <Navigate to="/login" replace />;
+  }
+  if (!canAccessFeedbackSection(currentUser, staffBlocks)) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+}
+
+function LearningSectionRoute({ children }: { children: React.ReactNode }) {
+  const { currentUser, staffBlocks } = useStore();
+
+  if (!currentUser) {
+    return <Navigate to="/login" replace />;
+  }
+  if (!canAccessLearningSection(currentUser, staffBlocks)) {
     return <Navigate to="/" replace />;
   }
 
@@ -94,9 +138,11 @@ export const router = createHashRouter([
       {
         path: 'mediaplan',
         element: (
-          <Suspense fallback={<PageLoader />}>
-            <MediaPlan />
-          </Suspense>
+          <MediaWorkloadProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
+              <MediaPlan />
+            </Suspense>
+          </MediaWorkloadProtectedRoute>
         ),
       },
       {
@@ -110,39 +156,41 @@ export const router = createHashRouter([
       {
         path: 'contentplan',
         element: (
-          <Suspense fallback={<PageLoader />}>
-            <ContentPlan />
-          </Suspense>
+          <MediaWorkloadProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
+              <ContentPlan />
+            </Suspense>
+          </MediaWorkloadProtectedRoute>
         ),
       },
       {
         path: 'analytics',
         element: (
-          <InsightsProtectedRoute>
+          <AnalyticsSectionRoute>
             <Suspense fallback={<PageLoader />}>
               <Analytics />
             </Suspense>
-          </InsightsProtectedRoute>
+          </AnalyticsSectionRoute>
         ),
       },
       {
         path: 'feedback',
         element: (
-          <InsightsProtectedRoute>
+          <FeedbackSectionRoute>
             <Suspense fallback={<PageLoader />}>
               <Feedback />
             </Suspense>
-          </InsightsProtectedRoute>
+          </FeedbackSectionRoute>
         ),
       },
       {
         path: 'learning',
         element: (
-          <InsightsProtectedRoute>
+          <LearningSectionRoute>
             <Suspense fallback={<PageLoader />}>
               <Learning />
             </Suspense>
-          </InsightsProtectedRoute>
+          </LearningSectionRoute>
         ),
       },
       {
@@ -164,9 +212,11 @@ export const router = createHashRouter([
       {
         path: 'archive',
         element: (
-          <Suspense fallback={<PageLoader />}>
-            <Archive />
-          </Suspense>
+          <MediaWorkloadProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
+              <Archive />
+            </Suspense>
+          </MediaWorkloadProtectedRoute>
         ),
       },
       {

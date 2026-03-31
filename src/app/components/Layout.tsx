@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Outlet, useLocation, useNavigate, NavLink } from 'react-router';
 import { useStore, type CloudSyncStatus } from '../store';
 import { isRemoteSyncConfigured } from '../api/backend';
@@ -24,7 +24,12 @@ import {
 import { permissionLabels, displayTaskTypeLabel } from '../types';
 import { toast } from 'sonner';
 import { cn } from './ui/utils';
-import { canAccessInsightsHub } from '../utils/permissions';
+import {
+  canAccessMediaWorkloadNav,
+  canAccessAnalyticsSection,
+  canAccessFeedbackSection,
+  canAccessLearningSection,
+} from '../utils/permissions';
 import {
   Sheet,
   SheetContent,
@@ -46,6 +51,20 @@ const PAGE_TITLES: Record<string, string> = {
   '/archive': 'Архив',
   '/account': 'Аккаунт',
 };
+
+const NAV_PRIMARY_BASE = [
+  { name: 'Дашборд', href: '/', icon: LayoutDashboard },
+  { name: 'Медиаплан', href: '/mediaplan', icon: ClipboardList },
+  { name: 'Встречи', href: '/meetings', icon: CalendarClock },
+  { name: 'Календарь', href: '/calendar', icon: Calendar },
+  { name: 'Контент план', href: '/contentplan', icon: LayoutGrid },
+] as const;
+
+const NAV_SECONDARY_BASE = [
+  { name: 'Команда', href: '/team', icon: Users },
+  { name: 'Архив', href: '/archive', icon: Archive },
+  { name: 'Аккаунт', href: '/account', icon: KeyRound },
+] as const;
 
 function CloudSyncIndicator({ status }: { status: CloudSyncStatus }) {
   if (status === 'off') return null;
@@ -96,30 +115,43 @@ export default function Layout() {
     navigate('/login');
   };
 
-  const navigationPrimary = [
-    { name: 'Дашборд', href: '/', icon: LayoutDashboard },
-    { name: 'Медиаплан', href: '/mediaplan', icon: ClipboardList },
-    { name: 'Встречи', href: '/meetings', icon: CalendarClock },
-    { name: 'Календарь', href: '/calendar', icon: Calendar },
-    { name: 'Контент план', href: '/contentplan', icon: LayoutGrid },
-  ];
+  const navigationPrimary = useMemo(() => {
+    if (!currentUser) return [...NAV_PRIMARY_BASE];
+    const allowMedia = canAccessMediaWorkloadNav(currentUser, staffBlocks);
+    return NAV_PRIMARY_BASE.filter((item) => {
+      if (item.href === '/mediaplan' || item.href === '/contentplan') return allowMedia;
+      return true;
+    });
+  }, [currentUser, staffBlocks]);
 
-  const navigationSecondary = [
-    { name: 'Команда', href: '/team', icon: Users },
-    { name: 'Архив', href: '/archive', icon: Archive },
-    { name: 'Аккаунт', href: '/account', icon: KeyRound },
-  ];
+  const navigationSecondary = useMemo(() => {
+    if (!currentUser) return [...NAV_SECONDARY_BASE];
+    const allowMedia = canAccessMediaWorkloadNav(currentUser, staffBlocks);
+    return NAV_SECONDARY_BASE.filter((item) => {
+      if (item.href === '/archive') return allowMedia;
+      return true;
+    });
+  }, [currentUser, staffBlocks]);
 
-  const showInsightsHub = currentUser ? canAccessInsightsHub(currentUser, staffBlocks) : false;
-  const navigationInsights = showInsightsHub
-    ? [
-        { name: 'Аналитика', href: '/analytics', icon: BarChart3 },
-        { name: 'Обратная связь', href: '/feedback', icon: MessageSquare },
-        { name: 'Обучение', href: '/learning', icon: GraduationCap },
-      ]
-    : [];
+  const navigationInsights = useMemo(() => {
+    if (!currentUser) return [];
+    const items: { name: string; href: string; icon: typeof BarChart3 }[] = [];
+    if (canAccessAnalyticsSection(currentUser, staffBlocks)) {
+      items.push({ name: 'Аналитика', href: '/analytics', icon: BarChart3 });
+    }
+    if (canAccessFeedbackSection(currentUser, staffBlocks)) {
+      items.push({ name: 'Обратная связь', href: '/feedback', icon: MessageSquare });
+    }
+    if (canAccessLearningSection(currentUser, staffBlocks)) {
+      items.push({ name: 'Обучение', href: '/learning', icon: GraduationCap });
+    }
+    return items;
+  }, [currentUser, staffBlocks]);
 
-  const navigationDesktop = [...navigationPrimary, ...navigationInsights, ...navigationSecondary];
+  const navigationDesktop = useMemo(
+    () => [...navigationPrimary, ...navigationInsights, ...navigationSecondary],
+    [navigationPrimary, navigationInsights, navigationSecondary],
+  );
 
   const desktopNavLinkClass = ({ isActive }: { isActive: boolean }) =>
     cn(

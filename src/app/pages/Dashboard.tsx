@@ -8,7 +8,12 @@ import { Link } from 'react-router';
 import { BarChart3, Calendar, CalendarClock, Users, CheckCircle2, AlertCircle, Info } from 'lucide-react';
 import { addDays, format, isBefore, isSameDay, startOfWeek } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { filterUsersByPermissions, filterTasksByPermissions, hasBroadAccess } from '../utils/permissions';
+import {
+  filterUsersByPermissions,
+  filterTasksByPermissions,
+  hasBroadAccess,
+  canAccessMediaWorkloadNav,
+} from '../utils/permissions';
 import { Badge } from '../components/ui/badge';
 
 export default function Dashboard() {
@@ -21,6 +26,8 @@ export default function Dashboard() {
   const displayUsers = useMemo(() => withoutGhostServiceUser(visibleUsers), [visibleUsers]);
   const seesAll = hasBroadAccess(currentUser);
   const blockName = currentUser ? staffBlocks.find((b) => b.id === currentUser.blockId)?.name : null;
+  const canOpenArchive =
+    currentUser && canAccessMediaWorkloadNav(currentUser, staffBlocks);
 
   const activeTasks = visibleTasks.filter(t => !t.completed);
   const completedTasks = visibleTasks.filter(t => t.completed);
@@ -83,7 +90,7 @@ export default function Dashboard() {
           <CardContent>
             <div className="text-2xl font-bold text-green-600">{completedTasksLifetimeTotal}</div>
             <p className="text-xs text-gray-500 mt-1">Выполнено задач (всего, с учётом удалённых из архива)</p>
-            {(completedTasks.length > 0 || completedTasksLifetimeTotal > 0) && (
+            {canOpenArchive && (completedTasks.length > 0 || completedTasksLifetimeTotal > 0) && (
               <Link to="/archive" className="text-xs text-blue-600 hover:underline mt-2 inline-block">
                 Открыть архив
                 {completedTasks.length > 0 && (

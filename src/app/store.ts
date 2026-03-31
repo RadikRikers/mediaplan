@@ -29,6 +29,9 @@ import {
   LEADERSHIP_BLOCK_ID,
   MEDIA_ROOT_ID,
   MEDIA_SUB_BLOCK_IDS,
+  ANALYTICS_BLOCK_ID,
+  FEEDBACK_BLOCK_ID,
+  LEARNING_DEPT_BLOCK_ID,
 } from './constants/staffBlockIds';
 import {
   fetchRemoteState,
@@ -104,6 +107,30 @@ const initialStaffBlocks: StaffBlock[] = [
     taskVisibility: 'block_only',
     taskVisibilityExtraUserIds: [],
   },
+  {
+    id: ANALYTICS_BLOCK_ID,
+    name: 'Отдел аналитики',
+    createdAt: orgSeedAt,
+    parentBlockId: null,
+    taskVisibility: 'block_only',
+    taskVisibilityExtraUserIds: [],
+  },
+  {
+    id: FEEDBACK_BLOCK_ID,
+    name: 'Отдел обратной связи',
+    createdAt: orgSeedAt,
+    parentBlockId: null,
+    taskVisibility: 'block_only',
+    taskVisibilityExtraUserIds: [],
+  },
+  {
+    id: LEARNING_DEPT_BLOCK_ID,
+    name: 'Отдел обучения',
+    createdAt: orgSeedAt,
+    parentBlockId: null,
+    taskVisibility: 'block_only',
+    taskVisibilityExtraUserIds: [],
+  },
 ];
 
 const initialJobPositions: JobPosition[] = [
@@ -120,6 +147,21 @@ const initialJobPositions: JobPosition[] = [
   { id: 'pos-copy', name: 'Копирайтер', blockId: 'blk-copy', defaultRole: 'copywriter', createdAt: orgSeedAt },
   { id: 'pos-designer', name: 'Дизайнер', blockId: 'blk-content', defaultRole: 'designer', createdAt: orgSeedAt },
   { id: 'pos-video', name: 'Видеограф', blockId: 'blk-content', defaultRole: 'videographer', createdAt: orgSeedAt },
+  { id: 'pos-analytics', name: 'Аналитик', blockId: ANALYTICS_BLOCK_ID, defaultRole: 'smm-specialist', createdAt: orgSeedAt },
+  {
+    id: 'pos-feedback',
+    name: 'Специалист по обратной связи',
+    blockId: FEEDBACK_BLOCK_ID,
+    defaultRole: 'smm-specialist',
+    createdAt: orgSeedAt,
+  },
+  {
+    id: 'pos-learning',
+    name: 'Специалист по обучению',
+    blockId: LEARNING_DEPT_BLOCK_ID,
+    defaultRole: 'smm-specialist',
+    createdAt: orgSeedAt,
+  },
 ];
 
 function permissionLevelFromLegacyUser(id: string, role: UserRole): PermissionLevel {
@@ -247,6 +289,8 @@ function ensureStaffBlockHierarchy(blocks: StaffBlock[]): StaffBlock[] {
       ...next,
     ];
   }
+  next = ensureSpecialtyDeptStaffBlocks(next);
+
   return next.map((b) => {
     if (b.id === LEADERSHIP_BLOCK_ID) {
       return { ...b, parentBlockId: null };
@@ -289,6 +333,70 @@ function ensureLeadershipJobPosition(
       createdAt: seedAt,
     }),
   ];
+}
+
+/** Должности для отделов аналитики / ОС / обучения, если блок есть, а позиций ещё нет */
+function ensureSpecialtyDeptJobPositions(
+  positions: JobPosition[],
+  blocks: StaffBlock[],
+  seedAt: string,
+): JobPosition[] {
+  let next = [...positions];
+  const specs: { blockId: string; posId: string; name: string }[] = [
+    { blockId: ANALYTICS_BLOCK_ID, posId: 'pos-analytics', name: 'Аналитик' },
+    { blockId: FEEDBACK_BLOCK_ID, posId: 'pos-feedback', name: 'Специалист по обратной связи' },
+    { blockId: LEARNING_DEPT_BLOCK_ID, posId: 'pos-learning', name: 'Специалист по обучению' },
+  ];
+  for (const s of specs) {
+    if (!blocks.some((b) => b.id === s.blockId)) continue;
+    if (next.some((p) => p.blockId === s.blockId)) continue;
+    next.push(
+      normalizeJobPositionWire({
+        id: s.posId,
+        name: s.name,
+        blockId: s.blockId,
+        defaultRole: 'smm-specialist',
+        createdAt: seedAt,
+      }),
+    );
+  }
+  return next;
+}
+
+const SPECIALTY_DEPT_BLOCK_SEEDS: Omit<StaffBlock, 'createdAt'>[] = [
+  {
+    id: ANALYTICS_BLOCK_ID,
+    name: 'Отдел аналитики',
+    parentBlockId: null,
+    taskVisibility: 'block_only',
+    taskVisibilityExtraUserIds: [],
+  },
+  {
+    id: FEEDBACK_BLOCK_ID,
+    name: 'Отдел обратной связи',
+    parentBlockId: null,
+    taskVisibility: 'block_only',
+    taskVisibilityExtraUserIds: [],
+  },
+  {
+    id: LEARNING_DEPT_BLOCK_ID,
+    name: 'Отдел обучения',
+    parentBlockId: null,
+    taskVisibility: 'block_only',
+    taskVisibilityExtraUserIds: [],
+  },
+];
+
+function ensureSpecialtyDeptStaffBlocks(blocks: StaffBlock[]): StaffBlock[] {
+  const byId = new Set(blocks.map((b) => b.id));
+  const seedAt = blocks[0]?.createdAt ?? new Date().toISOString();
+  let next = [...blocks];
+  for (const def of SPECIALTY_DEPT_BLOCK_SEEDS) {
+    if (byId.has(def.id)) continue;
+    next.push({ ...def, createdAt: seedAt });
+    byId.add(def.id);
+  }
+  return next;
 }
 
 // Начальные пользователи (id 1–8 — команда, 9 — сервисный аккаунт для сохранения в localStorage)
@@ -1072,6 +1180,11 @@ function loadFromStorage<T>(key: string, defaultValue: T): T {
           blocksForEnsure,
           blocksForEnsure[0]?.createdAt ?? new Date().toISOString(),
         );
+        jp = ensureSpecialtyDeptJobPositions(
+          jp,
+          blocksForEnsure,
+          blocksForEnsure[0]?.createdAt ?? new Date().toISOString(),
+        );
         return jp as T;
       }
       if (key === STORAGE_KEYS.CHANNELS && Array.isArray(parsed)) {
@@ -1228,6 +1341,11 @@ function buildStatePayloadFromRemote(data: RemoteStatePayload): RemoteStatePaylo
     : [];
   if (jobPositions.length === 0) jobPositions = [...initialJobPositions];
   jobPositions = ensureLeadershipJobPosition(
+    jobPositions,
+    staffBlocks,
+    staffBlocks[0]?.createdAt ?? new Date().toISOString(),
+  );
+  jobPositions = ensureSpecialtyDeptJobPositions(
     jobPositions,
     staffBlocks,
     staffBlocks[0]?.createdAt ?? new Date().toISOString(),
