@@ -1346,9 +1346,7 @@ function buildStatePayloadFromRemote(data: RemoteStatePayload): {
 
   const tasksRaw = Array.isArray(data.tasks) ? data.tasks : [];
   const serverHadTaskList = tasksRaw.length > 0;
-  let tasksNext = tasksRaw.map((t) => normalizeTaskWire(t as unknown as Record<string, unknown>));
-  // Если на сервере пока пусто — показываем локальный seed.
-  if (tasksNext.length === 0) tasksNext = [...initialTasks];
+  const tasksNext = tasksRaw.map((t) => normalizeTaskWire(t as unknown as Record<string, unknown>));
 
   const channelsNext =
     Array.isArray(data.channels) && data.channels.length > 0
