@@ -1,0 +1,389 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0545E5FCB625A183C01A4FAB /* Secrets.plist in Resources */ = {isa = PBXBuildFile; fileRef = E379484D0BB3B29E389C84C4 /* Secrets.plist */; };
+		1A4B1DFF6C788D9B8524E93B /* TasksListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E13CD369585509CE92691E4 /* TasksListView.swift */; };
+		25703FBE8F1013DB709B1350 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 43FFDD0CF3CCB455900E62AC /* Supabase */; };
+		271D60B6B4EFC3C58FA6C26A /* SupabaseStateClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98DD6BF20553A776F65B0019 /* SupabaseStateClient.swift */; };
+		3EFAE0A105BE07711DCB1D93 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 84D7021C0AC8A29DFC8454B0 /* Assets.xcassets */; };
+		42C69F6A60ADDFC2F17E068A /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EECF7D7D5E915826E96A0C8 /* MainTabView.swift */; };
+		4A328B75B16512351757FB1A /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F6870CA82ADBDC7B6BAE943 /* RootView.swift */; };
+		71988052EC1E32951EF37844 /* LoginNormalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D97052E5934AA9851128E6D /* LoginNormalization.swift */; };
+		8362FC7B9822E03FD5894E19 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59AE24DB67AC1E2827B943D4 /* LoginView.swift */; };
+		8A7DC3F48A5159AB5410A213 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 090D26DCF9FCA36F0E504774 /* Models.swift */; };
+		BAA074695C41D3211E33E7DA /* AppSecrets.swift in Sources */ = {isa = PBXBuildFile; fileRef = AADA224163665EBBD770B411 /* AppSecrets.swift */; };
+		C48455CEB3169FF0F3FBBEC4 /* WebLoginParity.swift in Sources */ = {isa = PBXBuildFile; fileRef = D672F46B6100E57FCB2DDAE3 /* WebLoginParity.swift */; };
+		D7FE197530CBF42864A11D28 /* AppViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 318918E11918C14427D5F2A1 /* AppViewModel.swift */; };
+		E9581199664D404E23F2BE6B /* MediaplanMobileApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C60860D0600611017D746179 /* MediaplanMobileApp.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		0420FAF1A9C05621D7120D3F /* MediaplanMobile.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = MediaplanMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		090D26DCF9FCA36F0E504774 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		1E13CD369585509CE92691E4 /* TasksListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TasksListView.swift; sourceTree = "<group>"; };
+		2D97052E5934AA9851128E6D /* LoginNormalization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginNormalization.swift; sourceTree = "<group>"; };
+		318918E11918C14427D5F2A1 /* AppViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppViewModel.swift; sourceTree = "<group>"; };
+		59AE24DB67AC1E2827B943D4 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
+		7EECF7D7D5E915826E96A0C8 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
+		84D7021C0AC8A29DFC8454B0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		8F6870CA82ADBDC7B6BAE943 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		98DD6BF20553A776F65B0019 /* SupabaseStateClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseStateClient.swift; sourceTree = "<group>"; };
+		AADA224163665EBBD770B411 /* AppSecrets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSecrets.swift; sourceTree = "<group>"; };
+		C60860D0600611017D746179 /* MediaplanMobileApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaplanMobileApp.swift; sourceTree = "<group>"; };
+		D672F46B6100E57FCB2DDAE3 /* WebLoginParity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebLoginParity.swift; sourceTree = "<group>"; };
+		E379484D0BB3B29E389C84C4 /* Secrets.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Secrets.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		8A0DE70AD4384C5DCCAE318D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				25703FBE8F1013DB709B1350 /* Supabase in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		4140464F24D0E416EFEEB483 = {
+			isa = PBXGroup;
+			children = (
+				FE9A8E5FE2AB3DABDFFCD322 /* MediaplanMobile */,
+				CC3FD737345BBCEC45C57CE8 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		CC3FD737345BBCEC45C57CE8 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				0420FAF1A9C05621D7120D3F /* MediaplanMobile.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		FE9A8E5FE2AB3DABDFFCD322 /* MediaplanMobile */ = {
+			isa = PBXGroup;
+			children = (
+				AADA224163665EBBD770B411 /* AppSecrets.swift */,
+				318918E11918C14427D5F2A1 /* AppViewModel.swift */,
+				84D7021C0AC8A29DFC8454B0 /* Assets.xcassets */,
+				2D97052E5934AA9851128E6D /* LoginNormalization.swift */,
+				59AE24DB67AC1E2827B943D4 /* LoginView.swift */,
+				7EECF7D7D5E915826E96A0C8 /* MainTabView.swift */,
+				C60860D0600611017D746179 /* MediaplanMobileApp.swift */,
+				090D26DCF9FCA36F0E504774 /* Models.swift */,
+				8F6870CA82ADBDC7B6BAE943 /* RootView.swift */,
+				E379484D0BB3B29E389C84C4 /* Secrets.plist */,
+				98DD6BF20553A776F65B0019 /* SupabaseStateClient.swift */,
+				1E13CD369585509CE92691E4 /* TasksListView.swift */,
+				D672F46B6100E57FCB2DDAE3 /* WebLoginParity.swift */,
+			);
+			path = MediaplanMobile;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		621F60B88345E487608CEB97 /* MediaplanMobile */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FB302C144A6B5423358BC94D /* Build configuration list for PBXNativeTarget "MediaplanMobile" */;
+			buildPhases = (
+				B355C38785295539477EA9BA /* Sources */,
+				6417A7E45544925CA21937A9 /* Resources */,
+				8A0DE70AD4384C5DCCAE318D /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = MediaplanMobile;
+			packageProductDependencies = (
+				43FFDD0CF3CCB455900E62AC /* Supabase */,
+			);
+			productName = MediaplanMobile;
+			productReference = 0420FAF1A9C05621D7120D3F /* MediaplanMobile.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		FCB4A02CAA863CC9EF3BC862 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = 7855B77E3844202027F7296D /* Build configuration list for PBXProject "MediaplanMobile" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 4140464F24D0E416EFEEB483;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				6FF947483E909FEEE4066C09 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = CC3FD737345BBCEC45C57CE8 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				621F60B88345E487608CEB97 /* MediaplanMobile */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		6417A7E45544925CA21937A9 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3EFAE0A105BE07711DCB1D93 /* Assets.xcassets in Resources */,
+				0545E5FCB625A183C01A4FAB /* Secrets.plist in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		B355C38785295539477EA9BA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BAA074695C41D3211E33E7DA /* AppSecrets.swift in Sources */,
+				D7FE197530CBF42864A11D28 /* AppViewModel.swift in Sources */,
+				71988052EC1E32951EF37844 /* LoginNormalization.swift in Sources */,
+				8362FC7B9822E03FD5894E19 /* LoginView.swift in Sources */,
+				42C69F6A60ADDFC2F17E068A /* MainTabView.swift in Sources */,
+				E9581199664D404E23F2BE6B /* MediaplanMobileApp.swift in Sources */,
+				8A7DC3F48A5159AB5410A213 /* Models.swift in Sources */,
+				4A328B75B16512351757FB1A /* RootView.swift in Sources */,
+				271D60B6B4EFC3C58FA6C26A /* SupabaseStateClient.swift in Sources */,
+				1A4B1DFF6C788D9B8524E93B /* TasksListView.swift in Sources */,
+				C48455CEB3169FF0F3FBBEC4 /* WebLoginParity.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		38B91C04CBDFE04496B34C7E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Медиапланирование";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mediaplan.mobile;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		42A3DAA7925EC6390F8B5F7D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		43414E6AC20F2C1A527292CF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Медиапланирование";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mediaplan.mobile;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		93BA8194C6CD1AC9749B4312 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		7855B77E3844202027F7296D /* Build configuration list for PBXProject "MediaplanMobile" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				42A3DAA7925EC6390F8B5F7D /* Debug */,
+				93BA8194C6CD1AC9749B4312 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		FB302C144A6B5423358BC94D /* Build configuration list for PBXNativeTarget "MediaplanMobile" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				43414E6AC20F2C1A527292CF /* Debug */,
+				38B91C04CBDFE04496B34C7E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		6FF947483E909FEEE4066C09 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.18.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		43FFDD0CF3CCB455900E62AC /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 6FF947483E909FEEE4066C09 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = FCB4A02CAA863CC9EF3BC862 /* Project object */;
+}

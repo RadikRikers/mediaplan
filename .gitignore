@@ -18,3 +18,8 @@ dist/
 
 # Кэш
 .cache/
+
+# iOS — секреты и локальные данные Xcode
+ios-mediaplan/MediaplanMobile/Secrets.plist
+ios-mediaplan/**/xcuserdata/
+ios-mediaplan/**/*.xcuserstate

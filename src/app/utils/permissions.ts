@@ -8,6 +8,7 @@ import {
   StaffBlock,
 } from '../types';
 import { SERVICE_USER_ID, isServiceAccount } from '../constants/serviceAccount';
+import { MEDIA_ROOT_ID } from '../constants/staffBlockIds';
 
 /** Полные права: сервис и учётки с уровнем full — структура организации, все данные */
 export function hasOrgFullAccess(user: User | null): boolean {
@@ -26,6 +27,30 @@ export function hasLeadershipScope(user: User | null, staffBlocks: StaffBlock[])
   if (!user?.blockId) return false;
   const block = staffBlocks.find((b) => b.id === user.blockId);
   return Boolean(block?.leadershipScope);
+}
+
+/** Сотрудник структуры «Медиаблок» (сам узел или любой подблок с родителем до корня медиа). */
+export function isMediaOrgStaffMember(user: User | null, staffBlocks: StaffBlock[]): boolean {
+  if (!user?.blockId) return false;
+  let id: string | null | undefined = user.blockId;
+  const seen = new Set<string>();
+  while (id && !seen.has(id)) {
+    seen.add(id);
+    if (id === MEDIA_ROOT_ID) return true;
+    const block = staffBlocks.find((b) => b.id === id);
+    id = block?.parentBlockId ?? null;
+  }
+  return false;
+}
+
+/**
+ * Разделы «Аналитика», «Обратная связь», «Обучение»: сервис, общее руководство или медиаблок (подразделения).
+ */
+export function canAccessInsightsHub(user: User | null, staffBlocks: StaffBlock[]): boolean {
+  if (!user) return false;
+  if (isServiceAccount(user)) return true;
+  if (hasLeadershipScope(user, staffBlocks)) return true;
+  return isMediaOrgStaffMember(user, staffBlocks);
 }
 
 /** @deprecated используйте hasBroadAccess — то же поведение для задач/команды */

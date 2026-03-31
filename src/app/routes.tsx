@@ -3,6 +3,7 @@ import { createHashRouter, Navigate } from 'react-router';
 import { useStore } from './store';
 import Layout from './components/Layout';
 import { Skeleton } from './components/ui/skeleton';
+import { canAccessInsightsHub } from './utils/permissions';
 
 const Login = lazy(() => import('./pages/Login'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -13,6 +14,9 @@ const Account = lazy(() => import('./pages/Account'));
 const Archive = lazy(() => import('./pages/Archive'));
 const Meetings = lazy(() => import('./pages/Meetings'));
 const ContentPlan = lazy(() => import('./pages/ContentPlan'));
+const Analytics = lazy(() => import('./pages/Analytics'));
+const Feedback = lazy(() => import('./pages/Feedback'));
+const Learning = lazy(() => import('./pages/Learning'));
 
 function PageLoader() {
   return (
@@ -29,11 +33,24 @@ function PageLoader() {
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { currentUser } = useStore();
-  
+
   if (!currentUser) {
     return <Navigate to="/login" replace />;
   }
-  
+
+  return <>{children}</>;
+}
+
+function InsightsProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { currentUser, staffBlocks } = useStore();
+
+  if (!currentUser) {
+    return <Navigate to="/login" replace />;
+  }
+  if (!canAccessInsightsHub(currentUser, staffBlocks)) {
+    return <Navigate to="/" replace />;
+  }
+
   return <>{children}</>;
 }
 
@@ -96,6 +113,36 @@ export const router = createHashRouter([
           <Suspense fallback={<PageLoader />}>
             <ContentPlan />
           </Suspense>
+        ),
+      },
+      {
+        path: 'analytics',
+        element: (
+          <InsightsProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
+              <Analytics />
+            </Suspense>
+          </InsightsProtectedRoute>
+        ),
+      },
+      {
+        path: 'feedback',
+        element: (
+          <InsightsProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
+              <Feedback />
+            </Suspense>
+          </InsightsProtectedRoute>
+        ),
+      },
+      {
+        path: 'learning',
+        element: (
+          <InsightsProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
+              <Learning />
+            </Suspense>
+          </InsightsProtectedRoute>
         ),
       },
       {

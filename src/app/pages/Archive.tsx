@@ -45,7 +45,8 @@ export default function Archive() {
           Архив
         </h1>
         <p className="text-gray-600 mt-2">
-          Выполненные задачи. Через 2 суток после дедлайна они удаляются автоматически.
+          Выполненные задачи. Через месяц после дедлайна и даты выполнения они удаляются из архива автоматически;
+          общий счётчик завершённых на дашборде при этом не сбрасывается.
         </p>
         {!isServiceAccount(currentUser) && !isRemoteSyncConfigured() && (
           <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mt-3">

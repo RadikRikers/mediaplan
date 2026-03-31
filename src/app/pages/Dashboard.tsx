@@ -12,7 +12,8 @@ import { filterUsersByPermissions, filterTasksByPermissions, hasBroadAccess } fr
 import { Badge } from '../components/ui/badge';
 
 export default function Dashboard() {
-  const { users, tasks, channels, currentUser, staffBlocks, jobPositions } = useStore();
+  const { users, tasks, completedTasksLifetimeTotal, channels, currentUser, staffBlocks, jobPositions } =
+    useStore();
 
   // Фильтруем пользователей и задачи по правам доступа
   const visibleUsers = filterUsersByPermissions(users, currentUser, staffBlocks);
@@ -80,11 +81,14 @@ export default function Dashboard() {
             <CheckCircle2 className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{completedTasks.length}</div>
-            <p className="text-xs text-gray-500 mt-1">Выполнено задач</p>
-            {completedTasks.length > 0 && (
+            <div className="text-2xl font-bold text-green-600">{completedTasksLifetimeTotal}</div>
+            <p className="text-xs text-gray-500 mt-1">Выполнено задач (всего, с учётом удалённых из архива)</p>
+            {(completedTasks.length > 0 || completedTasksLifetimeTotal > 0) && (
               <Link to="/archive" className="text-xs text-blue-600 hover:underline mt-2 inline-block">
                 Открыть архив
+                {completedTasks.length > 0 && (
+                  <span className="text-gray-500"> ({completedTasks.length} в архиве)</span>
+                )}
               </Link>
             )}
           </CardContent>

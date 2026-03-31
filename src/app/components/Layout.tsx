@@ -17,10 +17,14 @@ import {
   CloudOff,
   Loader2,
   LayoutGrid,
+  BarChart3,
+  MessageSquare,
+  GraduationCap,
 } from 'lucide-react';
 import { permissionLabels, displayTaskTypeLabel } from '../types';
 import { toast } from 'sonner';
 import { cn } from './ui/utils';
+import { canAccessInsightsHub } from '../utils/permissions';
 import {
   Sheet,
   SheetContent,
@@ -35,6 +39,9 @@ const PAGE_TITLES: Record<string, string> = {
   '/meetings': 'Встречи',
   '/calendar': 'Календарь',
   '/contentplan': 'Контент план',
+  '/analytics': 'Аналитика',
+  '/feedback': 'Обратная связь',
+  '/learning': 'Обучение',
   '/team': 'Команда',
   '/archive': 'Архив',
   '/account': 'Аккаунт',
@@ -72,7 +79,7 @@ function CloudSyncIndicator({ status }: { status: CloudSyncStatus }) {
 }
 
 export default function Layout() {
-  const { currentUser, jobPositions, setCurrentUser, cloudSyncStatus } = useStore();
+  const { currentUser, jobPositions, staffBlocks, setCurrentUser, cloudSyncStatus } = useStore();
   const location = useLocation();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -102,6 +109,17 @@ export default function Layout() {
     { name: 'Архив', href: '/archive', icon: Archive },
     { name: 'Аккаунт', href: '/account', icon: KeyRound },
   ];
+
+  const showInsightsHub = currentUser ? canAccessInsightsHub(currentUser, staffBlocks) : false;
+  const navigationInsights = showInsightsHub
+    ? [
+        { name: 'Аналитика', href: '/analytics', icon: BarChart3 },
+        { name: 'Обратная связь', href: '/feedback', icon: MessageSquare },
+        { name: 'Обучение', href: '/learning', icon: GraduationCap },
+      ]
+    : [];
+
+  const navigationDesktop = [...navigationPrimary, ...navigationInsights, ...navigationSecondary];
 
   const desktopNavLinkClass = ({ isActive }: { isActive: boolean }) =>
     cn(
@@ -157,6 +175,34 @@ export default function Layout() {
                       );
                     })}
                   </nav>
+                  {navigationInsights.length > 0 && (
+                    <>
+                      <p className="text-xs font-medium text-muted-foreground mt-4 mb-1">
+                        Аналитика и развитие
+                      </p>
+                      <nav className="flex flex-col gap-1">
+                        {navigationInsights.map((item) => {
+                          const Icon = item.icon;
+                          return (
+                            <NavLink
+                              key={item.name}
+                              to={item.href}
+                              onClick={() => setMenuOpen(false)}
+                              className={({ isActive }) =>
+                                cn(
+                                  'flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors',
+                                  isActive ? 'bg-blue-50 text-blue-800' : 'text-gray-700 hover:bg-gray-50',
+                                )
+                              }
+                            >
+                              <Icon className="h-4 w-4 shrink-0" />
+                              {item.name}
+                            </NavLink>
+                          );
+                        })}
+                      </nav>
+                    </>
+                  )}
                   <p className="text-xs font-medium text-muted-foreground mt-4 mb-1">Команда и профиль</p>
                   <nav className="flex flex-col gap-1">
                     {navigationSecondary.map((item) => {
@@ -217,7 +263,7 @@ export default function Layout() {
 
           {/* Строка 2 (desktop): основные разделы + команда/архив/аккаунт */}
           <div className="hidden md:flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-slate-100 py-2.5">
-            {[...navigationPrimary, ...navigationSecondary].map((item) => {
+            {navigationDesktop.map((item) => {
               const Icon = item.icon;
               return (
                 <NavLink key={item.name} to={item.href} end={item.href === '/'} className={desktopNavLinkClass}>

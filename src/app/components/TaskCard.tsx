@@ -13,7 +13,8 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Checkbox } from './ui/checkbox';
-import { format, isBefore, addDays, differenceInCalendarDays } from 'date-fns';
+import { format, isBefore, differenceInCalendarDays } from 'date-fns';
+import { archivedTaskPurgeAt } from '../utils/archivePurge';
 import { ru } from 'date-fns/locale';
 import { Clock, Repeat, TrendingUp, Link as LinkIcon, Eye, Edit, Trash2, MessageSquare } from 'lucide-react';
 import { cn } from './ui/utils';
@@ -202,15 +203,10 @@ export function TaskCard({
         )}
 
         {archiveMode && task.completed && (() => {
-          const completedAt = task.completedAt ? new Date(task.completedAt) : new Date();
-          const purgeAfterDeadline = task.deadline ? addDays(new Date(task.deadline), 2) : completedAt;
-          const purgeAfterComplete = addDays(completedAt, 2);
-          const purgeAt = new Date(
-            Math.max(purgeAfterDeadline.getTime(), purgeAfterComplete.getTime()),
-          );
+          const purgeAt = archivedTaskPurgeAt(task);
           return (
             <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
-              Автоудаление не раньше: {format(purgeAt, 'dd.MM.yyyy HH:mm', { locale: ru })} (2 сут. после
+              Автоудаление не раньше: {format(purgeAt, 'dd.MM.yyyy HH:mm', { locale: ru })} (месяц после
               дедлайна и после отметки «выполнено»). Осталось примерно{' '}
               {Math.max(0, differenceInCalendarDays(purgeAt, new Date()))} сут.
             </p>

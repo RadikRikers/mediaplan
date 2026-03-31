@@ -10,6 +10,8 @@ export type RemoteStatePayload = {
   jobPositions: JobPosition[];
   notificationsShown: string[];
   pushNotificationsEnabled: boolean;
+  /** Сколько раз задачи были отмечены выполненными (не уменьшается при автоудалении из архива). */
+  completedTasksLifetimeTotal: number;
 };
 
 const ROW_ID = 'main';
@@ -30,6 +32,7 @@ function emptyPayload(): RemoteStatePayload {
     jobPositions: [],
     notificationsShown: [],
     pushNotificationsEnabled: false,
+    completedTasksLifetimeTotal: 0,
   };
 }
 
@@ -47,6 +50,12 @@ function coercePayload(raw: unknown): RemoteStatePayload {
       ? (o.notificationsShown as string[])
       : [],
     pushNotificationsEnabled: typeof o.pushNotificationsEnabled === 'boolean' ? o.pushNotificationsEnabled : false,
+    completedTasksLifetimeTotal:
+      typeof o.completedTasksLifetimeTotal === 'number' &&
+      Number.isFinite(o.completedTasksLifetimeTotal) &&
+      o.completedTasksLifetimeTotal >= 0
+        ? Math.floor(o.completedTasksLifetimeTotal)
+        : 0,
   };
 }
 
@@ -81,5 +90,6 @@ export function snapshotState(p: RemoteStatePayload): string {
     jobPositions: [...p.jobPositions].sort((a, b) => a.id.localeCompare(b.id)),
     notificationsShown: [...p.notificationsShown].sort(),
     pushNotificationsEnabled: p.pushNotificationsEnabled,
+    completedTasksLifetimeTotal: p.completedTasksLifetimeTotal,
   });
 }

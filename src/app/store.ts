@@ -37,6 +37,7 @@ import {
   snapshotState,
   type RemoteStatePayload,
 } from './api/backend';
+import { archivedTaskPurgeAt } from './utils/archivePurge';
 
 /** Состояние синхронизации с Supabase (для индикатора в шапке) */
 export type CloudSyncStatus = 'off' | 'loading' | 'saving' | 'ready' | 'error';
@@ -49,6 +50,7 @@ const STORAGE_KEYS = {
   MEETINGS: 'mediaplanning_meetings',
   STAFF_BLOCKS: 'mediaplanning_staff_blocks',
   JOB_POSITIONS: 'mediaplanning_job_positions',
+  COMPLETED_TASKS_LIFETIME: 'mediaplanning_completed_tasks_lifetime',
   NOTIFICATIONS_SHOWN: 'mediaplanning_notifications_shown',
   CURRENT_USER: 'mediaplanning_current_user',
   PUSH_NOTIFICATIONS_ENABLED: 'mediaplanning_push_notifications_enabled',
@@ -1083,6 +1085,27 @@ function loadFromStorage<T>(key: string, defaultValue: T): T {
   }
 }
 
+function loadCompletedTasksLifetimeInitial(): number {
+  try {
+    const rawLifetime = localStorage.getItem(STORAGE_KEYS.COMPLETED_TASKS_LIFETIME);
+    if (rawLifetime !== null) {
+      const n = JSON.parse(rawLifetime) as unknown;
+      if (typeof n === 'number' && Number.isFinite(n) && n >= 0) return Math.floor(n);
+    }
+  } catch {
+    /* ignore */
+  }
+  try {
+    const tasksRaw = localStorage.getItem(STORAGE_KEYS.TASKS);
+    if (!tasksRaw) return 0;
+    const arr = JSON.parse(tasksRaw) as unknown;
+    if (!Array.isArray(arr)) return 0;
+    return arr.filter((t) => t && typeof t === 'object' && Boolean((t as Task).completed)).length;
+  } catch {
+    return 0;
+  }
+}
+
 function loadSessionUser(): User | null {
   try {
     const ss = sessionStorage.getItem(SESSION_USER_KEY);
@@ -1162,7 +1185,10 @@ function stripDemoTasks(tasks: Task[]): Task[] {
 function credentialsMatch(user: User, nameInput: string, passwordInput: string): boolean {
   const nameOk =
     user.name.trim().localeCompare(nameInput.trim(), 'ru', { sensitivity: 'base' }) === 0;
-  return nameOk && user.password === passwordInput;
+  const passOk =
+    user.password === passwordInput ||
+    user.password.trim() === passwordInput.trim();
+  return nameOk && passOk;
 }
 
 function buildStatePayloadFromRemote(data: RemoteStatePayload): RemoteStatePayload {
@@ -1210,6 +1236,12 @@ function buildStatePayloadFromRemote(data: RemoteStatePayload): RemoteStatePaylo
   const notificationsNext = Array.isArray(data.notificationsShown) ? data.notificationsShown : [];
   const pushNext = typeof data.pushNotificationsEnabled === 'boolean' ? data.pushNotificationsEnabled : false;
 
+  const rawLt = data.completedTasksLifetimeTotal;
+  const fromRemote =
+    typeof rawLt === 'number' && Number.isFinite(rawLt) && rawLt >= 0 ? Math.floor(rawLt) : 0;
+  const completedInTasks = tasksNext.filter((t) => t.completed).length;
+  const completedTasksLifetimeTotal = Math.max(fromRemote, completedInTasks);
+
   return {
     users: usersNext,
     tasks: tasksNext,
@@ -1219,6 +1251,7 @@ function buildStatePayloadFromRemote(data: RemoteStatePayload): RemoteStatePaylo
     jobPositions,
     notificationsShown: notificationsNext,
     pushNotificationsEnabled: pushNext,
+    completedTasksLifetimeTotal,
   };
 }
 
@@ -1280,6 +1313,9 @@ function taskOccursOnCalendarDay(task: Task, targetDate: Date): boolean {
 export function useStore() {
   const [users, setUsers] = useState<User[]>(() => loadFromStorage(STORAGE_KEYS.USERS, initialUsers));
   const [tasks, setTasks] = useState<Task[]>(() => loadFromStorage(STORAGE_KEYS.TASKS, [] as Task[]));
+  const [completedTasksLifetimeTotal, setCompletedTasksLifetimeTotal] = useState<number>(() =>
+    loadCompletedTasksLifetimeInitial(),
+  );
   const [channels, setChannels] = useState<CommunicationChannel[]>(() => loadFromStorage(STORAGE_KEYS.CHANNELS, initialChannels));
   const [meetings, setMeetings] = useState<Meeting[]>(() => loadFromStorage(STORAGE_KEYS.MEETINGS, [] as Meeting[]));
   const [staffBlocks, setStaffBlocks] = useState<StaffBlock[]>(() =>
@@ -1310,12 +1346,26 @@ export function useStore() {
   const usersRef = useRef(users);
   usersRef.current = users;
 
+  /** Если в Supabase пустой users, сайт подставляет демо — их нужно один раз записать, чтобы мобильное приложение и БД совпадали. */
+  const persistSeededPayloadIfServerWasEmpty = useCallback(async (raw: RemoteStatePayload, payload: RemoteStatePayload) => {
+    if (!isRemoteSyncConfigured()) return;
+    if (raw.users.length > 0) return;
+    if (payload.users.length === 0) return;
+    try {
+      await saveRemoteState(payload);
+    } catch (e) {
+      console.error(e);
+      toast.error('Не удалось записать пользователей в Supabase. Проверьте сеть и попробуйте обновить страницу.');
+    }
+  }, []);
+
   const pullFromServer = useCallback(async (): Promise<boolean> => {
     if (!isRemoteSyncConfigured()) return false;
     setCloudSyncStatus('loading');
     try {
       const raw = await fetchRemoteState();
       const payload = buildStatePayloadFromRemote(raw);
+      await persistSeededPayloadIfServerWasEmpty(raw, payload);
       lastWrittenRef.current = snapshotState(payload);
       setUsers(payload.users);
       setTasks(payload.tasks);
@@ -1325,6 +1375,7 @@ export function useStore() {
       setJobPositions(payload.jobPositions);
       setNotificationsShown(new Set(payload.notificationsShown));
       setPushNotificationsEnabled(payload.pushNotificationsEnabled);
+      setCompletedTasksLifetimeTotal(payload.completedTasksLifetimeTotal);
       // При серверной синхронизации права и пароль текущего пользователя всегда берём из payload.
       setCurrentUser((prev) => {
         if (!prev) return prev;
@@ -1341,7 +1392,7 @@ export function useStore() {
     } finally {
       remoteHydratedRef.current = true;
     }
-  }, []);
+  }, [persistSeededPayloadIfServerWasEmpty]);
 
   /** Перед проверкой пароля подтягиваем пользователей с Supabase — иначе на новом устройстве остаётся устаревший локальный список */
   const attemptLogin = useCallback(
@@ -1352,6 +1403,7 @@ export function useStore() {
           setCloudSyncStatus('loading');
           const raw = await fetchRemoteState();
           const payload = buildStatePayloadFromRemote(raw);
+          await persistSeededPayloadIfServerWasEmpty(raw, payload);
           lastWrittenRef.current = snapshotState(payload);
           remoteHydratedRef.current = true;
           setUsers(payload.users);
@@ -1362,6 +1414,7 @@ export function useStore() {
           setJobPositions(payload.jobPositions);
           setNotificationsShown(new Set(payload.notificationsShown));
           setPushNotificationsEnabled(payload.pushNotificationsEnabled);
+          setCompletedTasksLifetimeTotal(payload.completedTasksLifetimeTotal);
           setCloudSyncStatus('ready');
           return payload.users.find((u) => credentialsMatch(u, trimmed, password)) ?? null;
         }
@@ -1373,7 +1426,7 @@ export function useStore() {
       }
       return usersRef.current.find((u) => credentialsMatch(u, trimmed, password)) ?? null;
     },
-    [],
+    [persistSeededPayloadIfServerWasEmpty],
   );
 
   useEffect(() => {
@@ -1451,6 +1504,11 @@ export function useStore() {
 
   useEffect(() => {
     if (!currentUser) return;
+    localStorage.setItem(STORAGE_KEYS.COMPLETED_TASKS_LIFETIME, JSON.stringify(completedTasksLifetimeTotal));
+  }, [completedTasksLifetimeTotal, currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) return;
     localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS_SHOWN, JSON.stringify([...notificationsShown]));
   }, [notificationsShown, currentUser]);
 
@@ -1474,6 +1532,7 @@ export function useStore() {
       jobPositions,
       notificationsShown: [...notificationsShown],
       pushNotificationsEnabled,
+      completedTasksLifetimeTotal,
     };
   }, [
     users,
@@ -1484,6 +1543,7 @@ export function useStore() {
     jobPositions,
     notificationsShown,
     pushNotificationsEnabled,
+    completedTasksLifetimeTotal,
     currentUser,
   ]);
 
@@ -1523,6 +1583,7 @@ export function useStore() {
       jobPositions,
       notificationsShown: [...notificationsShown],
       pushNotificationsEnabled,
+      completedTasksLifetimeTotal,
     };
     const snap = snapshotState(payload);
     if (lastWrittenRef.current === snap) return;
@@ -1545,7 +1606,18 @@ export function useStore() {
         }, 6000);
         toast.error('Не удалось сохранить в Supabase');
       });
-  }, [users, tasks, channels, meetings, staffBlocks, jobPositions, notificationsShown, pushNotificationsEnabled, currentUser]);
+  }, [
+    users,
+    tasks,
+    channels,
+    meetings,
+    staffBlocks,
+    jobPositions,
+    notificationsShown,
+    pushNotificationsEnabled,
+    completedTasksLifetimeTotal,
+    currentUser,
+  ]);
 
   useEffect(() => {
     if (!currentUser) {
@@ -1562,21 +1634,14 @@ export function useStore() {
     }
   }, [currentUser]);
 
-  // Удаление из архива: не раньше чем через 2 суток после дедлайна И 2 суток после отметки выполненным
-  // (иначе старые дедлайны мгновенно удаляли задачу из архива)
+  // Удаление из архива через месяц после дедлайна и после отметки «выполнено» (счётчик завершений не уменьшается).
   useEffect(() => {
     const purgeArchived = () => {
       setTasks((prev) => {
         const now = new Date();
         return prev.filter((t) => {
           if (!t.completed) return true;
-          const completedAt = t.completedAt ? new Date(t.completedAt) : new Date();
-          const purgeAfterDeadline = t.deadline ? addDays(new Date(t.deadline), 2) : completedAt;
-          const purgeAfterComplete = addDays(completedAt, 2);
-          const purgeAt = new Date(
-            Math.max(purgeAfterDeadline.getTime(), purgeAfterComplete.getTime()),
-          );
-          return !isAfter(now, purgeAt);
+          return !isAfter(now, archivedTaskPurgeAt(t));
         });
       });
     };
@@ -1771,7 +1836,20 @@ export function useStore() {
   };
 
   const updateTask = (taskId: string, updates: Partial<Task>) => {
-    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, ...updates } : t)));
+    setTasks((prev) => {
+      const t = prev.find((x) => x.id === taskId);
+      if (!t) return prev;
+      const merged = { ...t, ...updates };
+      const was = Boolean(t.completed);
+      const now = Boolean(merged.completed);
+      const d = !was && now ? 1 : was && !now ? -1 : 0;
+      if (d !== 0) {
+        queueMicrotask(() => {
+          setCompletedTasksLifetimeTotal((c) => Math.max(0, c + d));
+        });
+      }
+      return prev.map((x) => (x.id === taskId ? merged : x));
+    });
   };
 
   const deleteTask = (taskId: string) => {
@@ -1943,6 +2021,7 @@ export function useStore() {
   return {
     users,
     tasks,
+    completedTasksLifetimeTotal,
     channels,
     meetings,
     staffBlocks,
