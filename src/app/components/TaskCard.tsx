@@ -154,6 +154,13 @@ export function TaskCard({
         {task.description && (
           <p className="text-sm text-gray-600">{task.description}</p>
         )}
+        {(task.ttxTopic || task.ttxInfopovod) && (
+          <div className="rounded-md border border-dashed border-gray-300 p-2 text-sm">
+            <p className="font-medium text-gray-700">ТТХ</p>
+            {task.ttxTopic && <p className="text-gray-600">Тема: {task.ttxTopic}</p>}
+            {task.ttxInfopovod && <p className="text-gray-600">Инфоповод: {task.ttxInfopovod}</p>}
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-2 text-sm">
           <div className={cn('flex items-center gap-1', isOverdue && 'text-red-600 font-medium')}>

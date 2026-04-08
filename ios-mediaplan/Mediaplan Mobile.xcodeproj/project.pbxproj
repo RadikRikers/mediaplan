@@ -11,15 +11,20 @@
 		1A4B1DFF6C788D9B8524E93B /* TasksListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E13CD369585509CE92691E4 /* TasksListView.swift */; };
 		25703FBE8F1013DB709B1350 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 43FFDD0CF3CCB455900E62AC /* Supabase */; };
 		271D60B6B4EFC3C58FA6C26A /* SupabaseStateClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98DD6BF20553A776F65B0019 /* SupabaseStateClient.swift */; };
+		2F8BCA38B18A867DADA53509 /* StaffBlockIds.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EA5385643F90453024DFBA5 /* StaffBlockIds.swift */; };
 		3EFAE0A105BE07711DCB1D93 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 84D7021C0AC8A29DFC8454B0 /* Assets.xcassets */; };
 		42C69F6A60ADDFC2F17E068A /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EECF7D7D5E915826E96A0C8 /* MainTabView.swift */; };
 		4A328B75B16512351757FB1A /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F6870CA82ADBDC7B6BAE943 /* RootView.swift */; };
+		4E564A3AB466141924B6045A /* Secrets.plist.example in Resources */ = {isa = PBXBuildFile; fileRef = 5D9125A378A8B4E10B3615E7 /* Secrets.plist.example */; };
+		69843592D472C7B59D849C77 /* Permissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 264562D4BCCA44F3A1060273 /* Permissions.swift */; };
 		71988052EC1E32951EF37844 /* LoginNormalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D97052E5934AA9851128E6D /* LoginNormalization.swift */; };
 		8362FC7B9822E03FD5894E19 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59AE24DB67AC1E2827B943D4 /* LoginView.swift */; };
 		8A7DC3F48A5159AB5410A213 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 090D26DCF9FCA36F0E504774 /* Models.swift */; };
 		BAA074695C41D3211E33E7DA /* AppSecrets.swift in Sources */ = {isa = PBXBuildFile; fileRef = AADA224163665EBBD770B411 /* AppSecrets.swift */; };
+		C1A0EBD68820203C36314398 /* ServiceAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE95783DFADF54B4B7E1E736 /* ServiceAccount.swift */; };
 		C48455CEB3169FF0F3FBBEC4 /* WebLoginParity.swift in Sources */ = {isa = PBXBuildFile; fileRef = D672F46B6100E57FCB2DDAE3 /* WebLoginParity.swift */; };
 		D7FE197530CBF42864A11D28 /* AppViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 318918E11918C14427D5F2A1 /* AppViewModel.swift */; };
+		E12F7CD98DBEFCA4A3B49348 /* ShellViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = D266D4CE38E042114C16B208 /* ShellViews.swift */; };
 		E9581199664D404E23F2BE6B /* MediaplanMobileApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C60860D0600611017D746179 /* MediaplanMobileApp.swift */; };
 /* End PBXBuildFile section */
 
@@ -27,17 +32,22 @@
 		0420FAF1A9C05621D7120D3F /* MediaplanMobile.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = MediaplanMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		090D26DCF9FCA36F0E504774 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		1E13CD369585509CE92691E4 /* TasksListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TasksListView.swift; sourceTree = "<group>"; };
+		264562D4BCCA44F3A1060273 /* Permissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Permissions.swift; sourceTree = "<group>"; };
 		2D97052E5934AA9851128E6D /* LoginNormalization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginNormalization.swift; sourceTree = "<group>"; };
 		318918E11918C14427D5F2A1 /* AppViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppViewModel.swift; sourceTree = "<group>"; };
 		59AE24DB67AC1E2827B943D4 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
+		5D9125A378A8B4E10B3615E7 /* Secrets.plist.example */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = Secrets.plist.example; sourceTree = "<group>"; };
+		7EA5385643F90453024DFBA5 /* StaffBlockIds.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StaffBlockIds.swift; sourceTree = "<group>"; };
 		7EECF7D7D5E915826E96A0C8 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
 		84D7021C0AC8A29DFC8454B0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		8F6870CA82ADBDC7B6BAE943 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		98DD6BF20553A776F65B0019 /* SupabaseStateClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseStateClient.swift; sourceTree = "<group>"; };
 		AADA224163665EBBD770B411 /* AppSecrets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSecrets.swift; sourceTree = "<group>"; };
 		C60860D0600611017D746179 /* MediaplanMobileApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaplanMobileApp.swift; sourceTree = "<group>"; };
+		D266D4CE38E042114C16B208 /* ShellViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellViews.swift; sourceTree = "<group>"; };
 		D672F46B6100E57FCB2DDAE3 /* WebLoginParity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebLoginParity.swift; sourceTree = "<group>"; };
 		E379484D0BB3B29E389C84C4 /* Secrets.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Secrets.plist; sourceTree = "<group>"; };
+		FE95783DFADF54B4B7E1E736 /* ServiceAccount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceAccount.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -79,8 +89,13 @@
 				7EECF7D7D5E915826E96A0C8 /* MainTabView.swift */,
 				C60860D0600611017D746179 /* MediaplanMobileApp.swift */,
 				090D26DCF9FCA36F0E504774 /* Models.swift */,
+				264562D4BCCA44F3A1060273 /* Permissions.swift */,
 				8F6870CA82ADBDC7B6BAE943 /* RootView.swift */,
 				E379484D0BB3B29E389C84C4 /* Secrets.plist */,
+				5D9125A378A8B4E10B3615E7 /* Secrets.plist.example */,
+				FE95783DFADF54B4B7E1E736 /* ServiceAccount.swift */,
+				D266D4CE38E042114C16B208 /* ShellViews.swift */,
+				7EA5385643F90453024DFBA5 /* StaffBlockIds.swift */,
 				98DD6BF20553A776F65B0019 /* SupabaseStateClient.swift */,
 				1E13CD369585509CE92691E4 /* TasksListView.swift */,
 				D672F46B6100E57FCB2DDAE3 /* WebLoginParity.swift */,
@@ -119,8 +134,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
-				TargetAttributes = {
-				};
+				ORGANIZATIONNAME = "";
 			};
 			buildConfigurationList = 7855B77E3844202027F7296D /* Build configuration list for PBXProject "MediaplanMobile" */;
 			developmentRegion = en;
@@ -128,6 +142,7 @@
 			knownRegions = (
 				Base,
 				en,
+				ru,
 			);
 			mainGroup = 4140464F24D0E416EFEEB483;
 			minimizedProjectReferenceProxies = 1;
@@ -151,6 +166,7 @@
 			files = (
 				3EFAE0A105BE07711DCB1D93 /* Assets.xcassets in Resources */,
 				0545E5FCB625A183C01A4FAB /* Secrets.plist in Resources */,
+				4E564A3AB466141924B6045A /* Secrets.plist.example in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -168,7 +184,11 @@
 				42C69F6A60ADDFC2F17E068A /* MainTabView.swift in Sources */,
 				E9581199664D404E23F2BE6B /* MediaplanMobileApp.swift in Sources */,
 				8A7DC3F48A5159AB5410A213 /* Models.swift in Sources */,
+				69843592D472C7B59D849C77 /* Permissions.swift in Sources */,
 				4A328B75B16512351757FB1A /* RootView.swift in Sources */,
+				C1A0EBD68820203C36314398 /* ServiceAccount.swift in Sources */,
+				E12F7CD98DBEFCA4A3B49348 /* ShellViews.swift in Sources */,
+				2F8BCA38B18A867DADA53509 /* StaffBlockIds.swift in Sources */,
 				271D60B6B4EFC3C58FA6C26A /* SupabaseStateClient.swift in Sources */,
 				1A4B1DFF6C788D9B8524E93B /* TasksListView.swift in Sources */,
 				C48455CEB3169FF0F3FBBEC4 /* WebLoginParity.swift in Sources */,

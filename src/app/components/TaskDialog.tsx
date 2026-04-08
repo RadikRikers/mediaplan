@@ -67,6 +67,9 @@ export function TaskDialog({
   const [category, setCategory] = useState<TaskCategory>(task?.category || 'federal');
   const [assignees, setAssignees] = useState<string[]>(task?.assignees || []);
   const [selectedChannels, setSelectedChannels] = useState<string[]>(task?.channels || []);
+  const [channelSearch, setChannelSearch] = useState('');
+  const [ttxTopic, setTtxTopic] = useState(task?.ttxTopic || '');
+  const [ttxInfopovod, setTtxInfopovod] = useState(task?.ttxInfopovod || '');
   const [recurrence, setRecurrence] = useState<RecurrenceType>(task?.recurrence || 'none');
   const [dayOfWeek, setDayOfWeek] = useState(task?.dayOfWeek?.toString() || '1');
   const [dayOfMonth, setDayOfMonth] = useState(task?.dayOfMonth?.toString() || '1');
@@ -86,6 +89,9 @@ export function TaskDialog({
     setCategory(task?.category || 'federal');
     setAssignees((task?.assignees || []).filter((id) => id !== SERVICE_USER_ID));
     setSelectedChannels(task?.channels || []);
+    setChannelSearch('');
+    setTtxTopic(task?.ttxTopic || '');
+    setTtxInfopovod(task?.ttxInfopovod || '');
     setRecurrence(task?.recurrence || 'none');
     setDayOfWeek(task?.dayOfWeek?.toString() || '1');
     setDayOfMonth(task?.dayOfMonth?.toString() || '1');
@@ -126,6 +132,8 @@ export function TaskDialog({
       kpiType,
       kpiTarget: kpiType !== 'none' && kpiTarget ? parseInt(kpiTarget, 10) : undefined,
       channels: selectedChannels,
+      ttxTopic: ttxTopic.trim() || undefined,
+      ttxInfopovod: ttxInfopovod.trim() || undefined,
       socialPlatform: category === 'bloggers' ? task?.socialPlatform : undefined,
     };
 
@@ -152,6 +160,9 @@ export function TaskDialog({
     setCategory('federal');
     setAssignees([]);
     setSelectedChannels([]);
+    setChannelSearch('');
+    setTtxTopic('');
+    setTtxInfopovod('');
     setRecurrence('none');
     setDayOfWeek('1');
     setDayOfMonth('1');
@@ -179,6 +190,13 @@ export function TaskDialog({
   };
 
   const weekDays = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
+  const normalizedChannelSearch = channelSearch.trim().toLocaleLowerCase('ru');
+  const filteredChannels = useMemo(() => {
+    if (!normalizedChannelSearch) return channels;
+    return channels.filter((channel) =>
+      channel.name.toLocaleLowerCase('ru').includes(normalizedChannelSearch),
+    );
+  }, [channels, normalizedChannelSearch]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -372,8 +390,13 @@ export function TaskDialog({
 
           <div className="space-y-2">
             <Label>Каналы коммуникации</Label>
+            <Input
+              value={channelSearch}
+              onChange={(e) => setChannelSearch(e.target.value)}
+              placeholder="Поиск канала..."
+            />
             <div className="border rounded-md p-4 space-y-3 max-h-40 overflow-y-auto">
-              {channels.map(channel => (
+              {filteredChannels.map(channel => (
                 <div key={channel.id} className="flex items-center space-x-2">
                   <Checkbox
                     id={`channel-${channel.id}`}
@@ -391,6 +414,31 @@ export function TaskDialog({
               {channels.length === 0 && (
                 <p className="text-sm text-gray-500">Нет доступных каналов</p>
               )}
+              {channels.length > 0 && filteredChannels.length === 0 && (
+                <p className="text-sm text-gray-500">По вашему запросу каналы не найдены</p>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-3 rounded-md border p-4">
+            <p className="text-sm font-medium">ТТХ (необязательно)</p>
+            <div className="space-y-2">
+              <Label htmlFor="ttxTopic">Тема</Label>
+              <Input
+                id="ttxTopic"
+                value={ttxTopic}
+                onChange={(e) => setTtxTopic(e.target.value)}
+                placeholder="Укажите тему"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ttxInfopovod">Инфоповод</Label>
+              <Input
+                id="ttxInfopovod"
+                value={ttxInfopovod}
+                onChange={(e) => setTtxInfopovod(e.target.value)}
+                placeholder="Укажите инфоповод"
+              />
             </div>
           </div>
 

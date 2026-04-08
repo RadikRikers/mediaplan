@@ -134,6 +134,10 @@ export interface Task {
   kpiType: KPIType;
   kpiTarget?: number;
   channels: string[]; // channel IDs
+  /** ТТХ (необязательно): тема */
+  ttxTopic?: string;
+  /** ТТХ (необязательно): инфоповод */
+  ttxInfopovod?: string;
   /** Площадка размещения (контент-план / блогеры) */
   socialPlatform?: ContentSocialPlatform;
   createdAt: string;
